@@ -200,7 +200,7 @@ class Trainer:
 
         if self.log_val:
             assert self.val_loader is not None, "val_data_dir must be specified for logging validation"
-            self.val_data_iterator = indefinite_generator(self.val_loader)
+            self.val_data_iterator = misc.indefinite_generator(self.val_loader)
         if self.fix_log_batch:
             self.log_batch = next(self.val_data_iterator)
 
@@ -241,7 +241,7 @@ class Trainer:
                         self.model.all_category_names = self.train_loader.dataset.all_category_names
                         self.remake_dataloader = True
 
-            batch = validate_all_to_device(batch, device=self.accelerator.device)
+            batch = misc.validate_all_to_device(batch, device=self.accelerator.device)
             m = self.model.forward(batch, epoch=epoch, total_iter=self.total_iter, is_training=True)
             self.model.backward()
 
@@ -292,7 +292,7 @@ class Trainer:
                             batch = self.log_batch
                         else:
                             batch = next(self.val_data_iterator)
-                        batch = validate_all_to_device(batch, device=self.accelerator.device)
+                        batch = misc.validate_all_to_device(batch, device=self.accelerator.device)
                         self.model.set_eval()
                         with torch.no_grad():
                             m = self.model.forward(batch, epoch=epoch, logger=self.logger, total_iter=self.total_iter, logger_prefix='val_', is_training=False)
@@ -310,23 +310,3 @@ class Trainer:
                 break
         return metrics
 
-
-## utility functions
-def indefinite_generator(loader):
-    while True:
-        for x in loader:
-            yield x
-
-
-def validate_tensor_to_device(x, device=None):
-    if isinstance(x, (list, tuple)):
-        return x
-    if torch.any(torch.isnan(x)):
-        return None
-    elif device is None:
-        return x
-    else:
-        return x.to(device)
-
-def validate_all_to_device(batch, device=None):
-    return tuple(validate_tensor_to_device(x, device) for x in batch)

@@ -40,7 +40,7 @@ def horizontal_flip_box_new(box):
 
 class FaunaDataset(Dataset):
     def __init__(self, root, in_image_size=256, out_image_size=256, shuffle=False, load_background=False, random_xflip=False, 
-                 load_dino_feature=False, load_dino_cluster=False, dino_feature_dim=64, split='train', batch_size=6,
+                 load_dino_feature=False, load_dino_cluster=False, load_keypoint=False, dino_feature_dim=64, split='train', batch_size=6,
                  dataset_split_num=-1):
         super().__init__()
 
@@ -80,6 +80,8 @@ class FaunaDataset(Dataset):
         self.mask_loader = ["mask.png", torchvision.datasets.folder.default_loader]
         self.large_scale_bbox_loader = ["box.txt", box_loader]
         self.small_scale_bbox_loader = ["box.txt", small_scale_box_loader]
+        self.metadata_loader = ["metadata.json", metadata_loader]
+        self.keypoint_loader = ["keypoint.txt", keypoint_loader]
         # in fauna dataset we use batch_size to pad each category to make each batch contains same categories
         self.batch_size = batch_size
 
@@ -143,6 +145,7 @@ class FaunaDataset(Dataset):
         self.image_transform = transforms.Compose([transforms.Resize(self.in_image_size, interpolation=InterpolationMode.BILINEAR), transforms.ToTensor()])
         self.mask_transform = transforms.Compose([transforms.Resize(self.out_image_size, interpolation=InterpolationMode.NEAREST), transforms.ToTensor()])
         self.load_dino_feature = load_dino_feature
+        self.load_keypoint = load_keypoint
         if load_dino_feature:
             self.dino_feature_loader = [f"feat{dino_feature_dim}.png", dino_loader, dino_feature_dim]
         self.load_dino_cluster = load_dino_cluster
@@ -170,8 +173,13 @@ class FaunaDataset(Dataset):
 
         masks = self._load_ids(path, self.mask_loader, transform=self.mask_transform).unsqueeze(0)
         mask_dt = compute_distance_transform(masks)
-        bboxs = self._load_ids(path, bbox_loader, transform=torch.FloatTensor).unsqueeze(0)
-        bboxs = torch.cat([bboxs, torch.Tensor([[category_idx]]).float()], dim=-1)  # pad a label number
+        metadata = self._load_ids(path, self.metadata_loader)
+        global_frame_id = torch.LongTensor([int(metadata.get("video_frame_id"))])
+        xmin, ymin, xmax, ymax = metadata.get("crop_box_xyxy")
+        full_w, full_h = metadata.get("video_frame_width"), metadata.get("video_frame_height")
+        bboxs = torch.Tensor(
+            [global_frame_id.item(), xmin, ymin, xmax - xmin, ymax - ymin, full_w, full_h, 0, category_idx]
+        ).unsqueeze(0)
 
         mask_valid = get_valid_mask(bboxs, (self.out_image_size, self.out_image_size))  # exclude pixels cropped outside the original image
         flows = None
@@ -190,6 +198,11 @@ class FaunaDataset(Dataset):
             dino_clusters = self._load_ids(path, self.dino_cluster_loader, transform=transforms.ToTensor()).unsqueeze(0)
         else:
             dino_clusters = None
+        if self.load_keypoint:
+            keypoint = self._load_ids(path, self.keypoint_loader).unsqueeze(0)
+            keypoint = keypoint / self.in_image_size * 2 - 1
+        else:
+            keypoint = None
         seq_idx = torch.LongTensor([index])
         frame_idx = torch.LongTensor([0])
 
@@ -198,7 +211,7 @@ class FaunaDataset(Dataset):
             xflip = lambda x: None if x is None else x.flip(-1)
             images, masks, mask_dt, mask_valid, flows, bg_images, dino_features, dino_clusters = (*map(xflip, (images, masks, mask_dt, mask_valid, flows, bg_images, dino_features, dino_clusters)),)
             bboxs = horizontal_flip_box_new(bboxs)  # NxK
-        out = (*map(none_to_nan, (images, masks, mask_dt, mask_valid, flows, bboxs, bg_images, dino_features, dino_clusters, seq_idx, frame_idx)),)  # for batch collation
+        out = (*map(none_to_nan, (images, masks, mask_dt, mask_valid, flows, bboxs, bg_images, dino_features, dino_clusters, keypoint, seq_idx, frame_idx)),)  # for batch collation
         return out
 
     def _load_ids(self, path, loader, transform=None):

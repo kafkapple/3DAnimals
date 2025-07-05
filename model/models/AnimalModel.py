@@ -70,6 +70,7 @@ class LossConfig:
 
     arti_recon_loss_weight: float = 5.0
     kld_loss_weight: float = 0.001
+    keypoint_projection_loss_weight = 0
 
     mask_disc_loss_weight: float = 0.1
     mask_disc_loss_rv_weight: float = 0.0
@@ -354,7 +355,7 @@ class AnimalModel:
         return losses, aux
 
     def forward(self, batch, epoch, logger=None, total_iter=None, save_results=False, save_dir=None, logger_prefix='', is_training=True):
-        input_image, mask_gt, mask_dt, mask_valid, flow_gt, bbox, bg_image, dino_feat_im, dino_cluster_im, seq_idx, frame_idx = batch
+        input_image, mask_gt, mask_dt, mask_valid, flow_gt, bbox, bg_image, dino_feat_im, dino_cluster_im, keypoint, seq_idx, frame_idx = batch
         global_frame_id, crop_x0, crop_y0, crop_w, crop_h, full_w, full_h, sharpness = bbox.unbind(2)  # BxFx8
         mask_gt = (mask_gt[:, :, 0, :, :] > 0.9).float()  # BxFxHxW
         mask_dt = mask_dt / self.dataset.in_image_size
@@ -700,7 +701,8 @@ class AnimalModel:
             frames = [torch.Tensor(misc.add_text_to_image(f, text)).permute(2, 0, 1) for f in frames]
         return torch.stack(frames, dim=0)  # Shape: (T, C, H, W)
 
-    def render_bones(self, mvp, bones_pred, size=(256, 256), show_legend=False, overlay_img=None):
+    @staticmethod
+    def render_bones(mvp, bones_pred, size=(256, 256), show_legend=False, overlay_img=None):
         bone_world4 = torch.concat([bones_pred, torch.ones_like(bones_pred[..., :1]).to(bones_pred.device)], dim=-1)
         b, f, num_bones = bone_world4.shape[:3]
         bones_clip4 = (bone_world4.view(b, f, num_bones*2, 1, 4) @ mvp.transpose(-1, -2).reshape(b, f, 1, 4, 4)).view(b, f, num_bones, 2, 4)

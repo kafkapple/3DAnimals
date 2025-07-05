@@ -316,7 +316,7 @@ class FaunaModel(AnimalModel):
         return losses, aux
 
     def forward(self, batch, epoch, logger=None, total_iter=None, save_results=False, save_dir=None, logger_prefix='', is_training=True):
-        input_image, mask_gt, mask_dt, mask_valid, flow_gt, bbox, bg_image, dino_feat_im, dino_cluster_im, seq_idx, frame_idx = batch
+        input_image, mask_gt, mask_dt, mask_valid, flow_gt, bbox, bg_image, dino_feat_im, dino_cluster_im, keypoint, seq_idx, frame_idx = batch
         if bbox.shape[2] == 9:
             # Fauna Dataset bbox
             global_frame_id, crop_x0, crop_y0, crop_w, crop_h, full_w, full_h, sharpness, tmp_label = bbox.unbind(2)  # BxFx9
