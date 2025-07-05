@@ -142,6 +142,15 @@ python run.py --config-name train_ponymation_horse_stage2
 ```
 
 
+## 4D Reconstruction of Animal Video (WIP)
+This repo contains code to reconstruct 4D animal videos, i.e., a sequence of articulated 3D shapes of an animal in a video, using 3D-Fauna as the backbone. The code works on animal video dataset processed by [Animal Video Processing repo](https://github.com/briannlongzhao/Animal-Video-Processing).
+
+```shell
+python run_4d_reconstruction.py
+```
+
+
+
 ## Citation
 If you use this repository or find the papers useful for your research, please consider citing the following publications, as well as the original publications of the datasets used:
 ```
