@@ -66,10 +66,10 @@ class BaseSequenceDataset(Dataset):
 
 
 class NFrameSequenceDataset(BaseSequenceDataset):
-    def __init__(self, root, num_frames=2, skip_beginning=4, skip_end=4, min_seq_len=10, in_image_size=256, out_image_size=256, random_sample=False, dense_sample=True, shuffle=False, load_flow=False, load_background=False, random_xflip=False, load_dino_feature=False, load_dino_cluster=False, dino_feature_dim=64):
+    def __init__(self, root, num_frames=2, skip_beginning=4, skip_end=4, min_seq_len=10, in_image_size=256, out_image_size=256, random_sample=False, dense_sample=True, shuffle=False, load_flow=False, load_background=False, random_xflip=False, load_dino_feature=False, load_dino_cluster=False, dino_feature_dim=64, load_keypoint=False):
         self.image_loader = ["rgb.*", torchvision.datasets.folder.default_loader]
         self.mask_loader = ["mask.png", torchvision.datasets.folder.default_loader]
-        self.bbox_loader = ["box.txt", box_loader]
+        self.metadata_loader = ["metadata.json", metadata_loader]
         super().__init__(root, skip_beginning, skip_end, min_seq_len)
         if load_flow and num_frames > 1:
             self.flow_loader = ["flow.png", cv2.imread, cv2.IMREAD_UNCHANGED]
@@ -104,6 +104,9 @@ class NFrameSequenceDataset(BaseSequenceDataset):
         self.load_dino_cluster = load_dino_cluster
         if load_dino_cluster:
             self.dino_cluster_loader = ["clusters.png", torchvision.datasets.folder.default_loader]
+        self.load_keypoint = load_keypoint
+        if load_keypoint:
+            self.keypoint_loader = ["keypoint.txt", keypoint_loader]
         self.load_flow = load_flow
         self.load_background = load_background
         self.random_xflip = random_xflip
@@ -127,7 +130,24 @@ class NFrameSequenceDataset(BaseSequenceDataset):
         images = torch.stack(self._load_ids(paths, self.image_loader, transform=self.image_transform), 0)  # load all images
         masks = torch.stack(self._load_ids(paths, self.mask_loader, transform=self.mask_transform), 0)  # load all images
         mask_dt = compute_distance_transform(masks)
-        bboxs = torch.stack(self._load_ids(paths, self.bbox_loader, transform=torch.FloatTensor), 0)   # load bounding boxes for all images
+        metadata = self._load_ids(paths, self.metadata_loader)
+        global_frame_id = torch.LongTensor([int(m.get("video_frame_id")) for m in metadata])
+        xmin, ymin, xmax, ymax = map(
+            torch.Tensor, zip(*[m.get("crop_box_xyxy") for m in metadata])
+        )
+        try:
+            full_w = torch.Tensor([m.get("video_frame_width") for m in metadata])
+            full_h = torch.Tensor([m.get("video_frame_height") for m in metadata])
+        except Exception:
+            try:
+                full_w = torch.Tensor([m.get("frame_size_wh")[0] for m in metadata])
+                full_h = torch.Tensor([m.get("frame_size_wh")[1] for m in metadata])
+            except Exception:
+                full_w = torch.Tensor([1920] * len(paths))
+                full_h = torch.Tensor([1080] * len(paths))
+        bboxs = torch.stack([
+            global_frame_id, xmin, ymin, xmax - xmin, ymax - ymin, full_w, full_h, torch.zeros(len(paths))
+        ]).T
         mask_valid = get_valid_mask(bboxs, (self.out_image_size, self.out_image_size))  # exclude pixels cropped outside the original image
         if self.load_flow and len(paths) > 1:
             flows = torch.stack(self._load_ids(paths[:-1], self.flow_loader, transform=self.flow_transform), 0)  # load flow from current frame to next, (N-1)x(x,y)xHxW, -1~1
@@ -141,13 +161,21 @@ class NFrameSequenceDataset(BaseSequenceDataset):
         else:
             bg_images = None
         if self.load_dino_feature:
-            dino_features = torch.stack(self._load_ids(paths, self.dino_feature_loader, transform=torch.FloatTensor), 0)  # Fx64x224x224
+            try:
+                dino_features = torch.stack(self._load_ids(paths, self.dino_feature_loader, transform=torch.FloatTensor), 0)  # Fx64x224x224
+            except FileNotFoundError:
+                dino_features = None
         else:
             dino_features = None
         if self.load_dino_cluster:
             dino_clusters = torch.stack(self._load_ids(paths, self.dino_cluster_loader, transform=transforms.ToTensor()), 0)  # Fx3x55x55
         else:
             dino_clusters = None
+        if self.load_keypoint:
+            keypoint = torch.stack(self._load_ids(paths, self.keypoint_loader), 0)
+            keypoint = keypoint / self.in_image_size * 2 - 1
+        else:
+            keypoint = None
         seq_idx = torch.LongTensor([seq_idx])
         frame_idx = torch.arange(start_frame_idx, start_frame_idx+len(paths)).long()
 
@@ -167,5 +195,5 @@ class NFrameSequenceDataset(BaseSequenceDataset):
             if flows is not None:
                 flows[:num_pad] = 0  # setting flow to zeros for replicated frames
 
-        out = (*map(none_to_nan, (images, masks, mask_dt, mask_valid, flows, bboxs, bg_images, dino_features, dino_clusters, seq_idx, frame_idx)),)  # for batch collation
+        out = (*map(none_to_nan, (images, masks, mask_dt, mask_valid, flows, bboxs, bg_images, dino_features, dino_clusters, keypoint, seq_idx, frame_idx)),)  # for batch collation
         return out
