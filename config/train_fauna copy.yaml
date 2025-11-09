@@ -79,7 +79,5 @@ run_train: true
 run_test: false
 seed: 0
 gpu: 1
-num_iters: 1000000
+num_iters: 900000
 checkpoint_dir: results/fauna/exp
-resume: true
-logger_type: wandb

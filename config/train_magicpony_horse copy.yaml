@@ -20,6 +20,14 @@ dataset:
   load_dino_feature: true
   dino_feature_dim: 16
 
+  local_dir: /home/joon/3DAnimals/data/magicpony/horse_combined
+  skip_beginning: 0
+  skip_end: 100
+  num_frames: 1000
+  min_seq_len: 10
+  random_sample_frames_train: 100
+  random_sample_frames_val: 20
+
 
 
 
@@ -27,7 +35,7 @@ run_train: true
 run_test: false
 seed: 0
 gpu: 1
-num_iters: 160000
+num_iters: 140000
 checkpoint_dir: results/magicpony/horse
 resume: true
 logger_type: wandb

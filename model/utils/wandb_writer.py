@@ -39,8 +39,14 @@ class WandbWriter:
 
     def add_video(self, tag, vid_tensor, global_step=None, fps=4):
         vid_numpy = (vid_tensor.cpu().numpy()*255).astype(np.uint8)
-        video = wandb.Video(vid_numpy, caption=tag, fps=fps)
-        self.run.log({tag: video}, step=global_step)
+        try:
+            video = wandb.Video(vid_numpy, caption=tag, fps=fps, format="mp4")
+            self.run.log({tag: video}, step=global_step)
+        except Exception:
+            video = wandb.Video(vid_numpy, caption=tag, fps=fps, format="webm")
+            self.run.log({tag: video}, step=global_step)
+
+
 
     def add_histogram(self, tag, values, global_step=None):
         self.run.log({tag: wandb.Histogram(values.cpu().numpy())}, step=global_step)

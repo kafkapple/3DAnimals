@@ -37,8 +37,8 @@ model:
 run_train: true
 run_test: false
 seed: 0
-gpu: 0
-num_iters: 280000
+gpu: 1
+num_iters: 10000 #280000
 checkpoint_dir: results/ponymation/cow
 checkpoint_path: results/magicpony/pretrained_cow/pretrained_cow.pth
 resume: true  # Start from a MagicPony ckpt

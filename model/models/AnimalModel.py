@@ -234,7 +234,11 @@ class AnimalModel:
             raise NotImplementedError
 
         if self.glctx is None:
-            self.glctx = dr.RasterizeGLContext()
+            try:
+                self.glctx = dr.RasterizeGLContext()
+            except Exception:
+                self.glctx = dr.RasterizeCudaContext()
+            
         rendered = render.render_mesh(
             self.glctx,
             shape,

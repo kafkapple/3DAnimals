@@ -1,7 +1,7 @@
 run_train: true
 run_test: false
 seed: 0
-gpu: 0  # null to use CPU
+gpu: 1  # null to use CPU
 num_iters: 1
 train_data_dir: null
 val_data_dir: null

@@ -4,7 +4,7 @@ from model import Trainer, build_model
 
 # tensorboard --logdir ./tensorboard_logs/ --bind_all --samples_per_plugin images=1000000000 --port=23425 --reload_multifile True --load_fast false
 
-@hydra.main(config_path="config", config_name="train_magicpony_horse")
+@hydra.main(config_path="config", config_name="train_magicpony_horse") #train_ponymation_cow_stage1")
 def main(cfg: DictConfig):
     model = build_model(cfg.model)
     trainer = Trainer(cfg, model)
