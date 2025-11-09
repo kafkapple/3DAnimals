@@ -665,7 +665,8 @@ class AnimalModel:
         feat = log.im_features[:b0] if log.im_features is not None else None
         misc.save_obj(log.save_dir, tmp_shape, save_material=False, feat=feat, suffix="mesh", fnames=fnames)
         misc.save_txt(log.save_dir, log.pose[:b0].detach().cpu().numpy(), suffix='pose', fnames=fnames)
-        misc.save_txt(log.save_dir, rearrange(log.arti_params, "b f n c -> (b f) n c").cpu().numpy(), suffix='arti_params', fnames=fnames, delim=' ')
+        if log.arti_params is not None:
+            misc.save_txt(log.save_dir, rearrange(log.arti_params, "b f n c -> (b f) n c").cpu().numpy(), suffix='arti_params', fnames=fnames, delim=' ')
 
     def render_rotation_frames(self, render_mode, mesh, texture, light, resolution, background=None, im_features=None, prior_shape=None, num_frames=36, b=None, text=None):
         if b is None:
