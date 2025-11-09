@@ -49,7 +49,7 @@ class WandbWriter:
 
 
     def add_histogram(self, tag, values, global_step=None):
-        self.run.log({tag: wandb.Histogram(values.cpu().numpy())}, step=global_step)
+        self.run.log({tag: wandb.Histogram(values.detach().cpu().numpy())}, step=global_step)
 
     def finish(self):
         self.run.finish()
