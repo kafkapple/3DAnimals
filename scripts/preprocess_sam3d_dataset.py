@@ -186,24 +186,39 @@ class SAM3DDatasetPreprocessor:
         with open(output_path, 'w') as f:
             f.write(box_data)
 
-    def generate_metadata_json(self, output_path: Path, frame_id: str, image_size: Tuple[int, int] = (256, 256)):
-        """Generate metadata.json file with camera parameters.
+    def generate_metadata_json(self, box_path: Path, output_path: Path, frame_id: str):
+        """Generate Fauna-compatible metadata.json from box.txt.
 
-        Uses default camera parameters for monocular setup.
+        Reads box.txt to get crop box and image dimensions, then generates
+        metadata in Fauna dataset format.
         """
+        # Read box.txt to get all necessary information
+        with open(box_path, 'r') as f:
+            line = f.read().strip()
+            parts = line.split()
+
+            if len(parts) != 9:
+                raise ValueError(f"Invalid box.txt format: {box_path}")
+
+            frame_id_str, x0, y0, w, h, full_w, full_h, sharpness, label = parts
+
+        # Convert to proper types
+        x0, y0 = int(x0), int(y0)
+        w, h = int(w), int(h)
+        full_w, full_h = int(full_w), int(full_h)
+        sharpness = float(sharpness)
+        label = int(label)
+
+        # Create Fauna-format metadata
         metadata = {
-            "frame_id": frame_id,
-            "image_width": image_size[0],
-            "image_height": image_size[1],
-            "camera": {
-                "focal_length": 525.0,  # Default for 256x256
-                "principal_point": [image_size[0] / 2, image_size[1] / 2],
-                "distortion": [0.0, 0.0, 0.0, 0.0, 0.0]
-            },
-            "pose": {
-                "rotation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
-                "translation": [0.0, 0.0, 10.0]
-            }
+            "video_frame_id": int(frame_id),
+            "crop_box_xyxy": [x0, y0, x0 + w, y0 + h],
+            "video_frame_width": full_w,
+            "video_frame_height": full_h,
+            "sharpness": sharpness,
+            "crop_height": h,
+            "crop_width": w,
+            "label": label
         }
 
         with open(output_path, 'w') as f:
@@ -309,9 +324,14 @@ class SAM3DDatasetPreprocessor:
                             target_box.symlink_to(source_box.resolve())
 
                 # Generate metadata.json if missing
+                # Note: metadata.json must be generated after box.txt exists
                 if not source_meta.exists():
-                    self.generate_metadata_json(target_meta, frame_id, image_size)
-                    stats['generated_metadata'] += 1
+                    # Generate from box.txt (must exist at this point)
+                    if target_box.exists():
+                        self.generate_metadata_json(target_box, target_meta, frame_id)
+                        stats['generated_metadata'] += 1
+                    else:
+                        self.log(f"Warning: Cannot generate metadata without box.txt for {frame_id}", "WARNING")
                 elif source_meta.exists():
                     if copy_files:
                         shutil.copy2(source_meta, target_meta)
