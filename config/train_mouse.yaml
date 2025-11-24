@@ -1,0 +1,39 @@
+# Mouse Training Configuration (Simplified)
+# Dataset: 50 frames from data/fauna/Fauna_dataset/large_scale/mouse/train/seq_000/
+# Strategy: Few-shot learning from scratch
+# Duration: ~2-3 hours (RTX 3060)
+
+defaults:
+  - dataset: mouse
+  - model: mouse
+  - _self_
+
+# Experiment name
+exp_name: mouse_50frames
+run_name: ${exp_name}_${now:%Y%m%d_%H%M%S}
+
+# Training iterations
+num_iters: 50000              # 50K for few-shot (2-3 hours)
+save_checkpoint_freq: 5000    # Save every 30 min
+log_image_freq: 500          # Log every 15 min
+
+# Hardware
+device: cuda
+gpu_ids: [0]
+disable_tf32: true  # RTX 3060 compatibility
+
+# Logging
+wandb:
+  project: mouse_fauna
+  mode: online
+  tags: [mouse, few_shot, 50frames]
+
+# Output
+output_dir: results/${exp_name}
+resume: null  # Start from scratch
+
+# Training settings
+seed: 42
+run_train: true
+run_test: false
+keep_num_checkpoint: 5

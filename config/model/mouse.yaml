@@ -1,0 +1,169 @@
+# Mouse Model Configuration (Simplified)
+# Animal: Mouse (small quadruped)
+# Dataset: 50 frames few-shot learning
+# GPU Target: RTX 3060 12GB
+
+defaults:
+  - fauna  # Inherit base fauna configuration
+
+# Model name
+name: Fauna
+
+# ==============================================================================
+# Base Predictor - Shape & Features
+# ==============================================================================
+cfg_predictor_base:
+  # Shape (SDF Learning)
+  cfg_shape:
+    grid_res: 64                            # Low res for RTX 3060 (128 causes OOM)
+    grid_res_coarse_iter_range: [0, 30000] # Coarse until 30K
+    grid_res_coarse: 32
+    spatial_scale: 4.5                      # Small animal scale
+    num_layers: 5
+    hidden_size: 128
+    embedder_freq: 8
+    embed_concat_pts: true
+    init_sdf: ellipsoid                     # Start from ellipsoid
+    pretrained_sdf: null                    # Train from scratch
+    jitter_grid: 0.05
+    symmetrize: true                        # Bilateral symmetry
+
+  # DINO Features
+  cfg_dino:
+    feature_dim: 16
+    num_layers: 5
+    hidden_size: 128
+    activation: sigmoid
+    embedder_freq: 8
+    embed_concat_pts: true
+    symmetrize: false
+    minmax: [0., 1.]
+
+  # Memory Bank
+  cfg_bank:
+    memory_bank_size: 50  # Match dataset size
+
+# ==============================================================================
+# Instance Predictor - Appearance & Pose
+# ==============================================================================
+cfg_predictor_instance:
+  spatial_scale: ${..cfg_render.spatial_scale}
+
+  # Image Encoder
+  cfg_encoder:
+    cout: 256
+    which_vit: dino_vits8
+    pretrained: true
+    frozen: true
+    final_layer_type: conv
+
+  # Texture
+  cfg_texture:
+    texture_iter_range: [0, inf]
+    cout: 9
+    num_layers: 8
+    hidden_size: 128
+    activation: sigmoid
+    kd_minmax: [[0., 1.], [0., 1.], [0., 1.]]
+    embed_concat_pts: true
+    embedder_freq: 10
+    symmetrize: true
+
+  # Pose Estimation
+  cfg_pose:
+    architecture: encoder_dino_patch_key
+    cam_pos_z_offset: ${...cfg_render.cam_pos_z_offset}
+    fov: ${...cfg_render.fov}
+    max_trans_xy_range_ratio: 0.2
+    max_trans_z_range_ratio: 0.5
+    rot_rep: quadlookat
+    rot_temp_scalar: 1
+    naive_probs_iter: 2000
+    best_pose_start_iter: 6000
+    lookat_zeroy: true
+
+  # Deformation (disabled for few-shot)
+  enable_deform: false
+  cfg_deform:
+    deform_iter_range: [800000, inf]
+
+  # Articulation (skeletal motion)
+  enable_articulation: true
+  cfg_articulation:
+    articulation_iter_range: [10000, inf]  # Enable early at 10K
+    architecture: attention
+    num_layers: 4
+    hidden_size: 128
+    embedder_freq: 8
+    bone_feature_mode: sample+global
+    num_body_bones: 6        # Small spine (must be even: 4, 6, or 8)
+    body_bones_mode: z_minmax_y+
+    num_legs: 4              # Quadruped
+    num_leg_bones: 3
+    attach_legs_to_body_iter_range: [30000, inf]
+    legs_to_body_joint_indices: null  # Auto-detect
+    static_root_bones: false
+    skinning_temperature: 0.05
+    max_arti_angle: 60
+    constrain_legs: false
+    output_multiplier: 0.1
+    enable_refine: false
+
+  # Lighting
+  enable_lighting: true
+  cfg_light:
+    num_layers: 5
+    hidden_size: 128
+    amb_diff_minmax: [[0.0, 1.0], [0.5, 1.0]]
+
+  # Additional Settings
+  cfg_additional:
+    iter_leg_rotation_start: 150000  # Won't reach in few-shot
+
+# ==============================================================================
+# Rendering
+# ==============================================================================
+cfg_render:
+  spatial_scale: 4.5
+  background_mode: none
+  render_flow: false
+  cam_pos_z_offset: 10
+  fov: 25
+  renderer_spp: 1
+
+# ==============================================================================
+# Loss Weights
+# ==============================================================================
+cfg_loss:
+  # Mask losses
+  mask_loss_weight: 100.0
+  mask_dt_loss_weight: 0.
+  mask_inv_dt_loss_weight: 1000.0
+
+  # RGB loss
+  rgb_loss_weight: 1.0
+
+  # DINO feature loss
+  dino_feat_im_loss_weight: 10.0
+
+  # SDF regularization
+  sdf_reg_decay_start_iter: 5000
+  sdf_bce_reg_loss_weight: 0.
+  sdf_gradient_reg_loss_weight: 0.1
+
+  # Viewpoint selection
+  logit_loss_weight: 1.0
+  logit_loss_dino_feat_im_loss_multiplier: 50.0
+
+  # Articulation regularization
+  arti_reg_loss_iter_range: [30000, inf]
+  arti_reg_loss_weight: 0.2
+
+  # Deformation regularization
+  deform_reg_loss_weight: 10.0
+
+  # Few-shot training schedule
+  logit_loss_dino_feat_im_loss_multiplier_dict: {0: 50., 30000: 500.}
+  dino_feat_im_loss_weight_dict: {0: 10., 30000: 1.}
+  logit_loss_mask_multiplier: 0.05
+  logit_loss_mask_inv_dt_multiplier: 0.05

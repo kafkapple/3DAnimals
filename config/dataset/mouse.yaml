@@ -1,0 +1,30 @@
+# Mouse Dataset Configuration
+# Path: data/fauna_mouse/large_scale/mouse_dannce_6view/train/
+# Format: DANNCE 6-view format (multiple sequences)
+# Auto-split: train / val internally by FaunaDataset
+
+data_type: fauna
+
+# Image settings
+in_image_size: 256
+out_image_size: 256
+
+# Batch settings
+batch_size: 1        # Minimal for RTX 3060
+num_workers: 2
+
+# Paths (explicit paths for DANNCE dataset)
+train_data_dir: data/fauna_mouse/large_scale/mouse_dannce_6view/train
+val_data_dir: null    # Auto-split from train
+test_data_dir: null   # Same as train for few-shot
+
+# Augmentation (disabled for few-shot)
+random_shuffle_samples_train: false
+random_xflip_train: false
+
+# Features
+background_mode: none
+load_flow: false
+load_dino_feature: false
+load_dino_cluster: false
+dino_feature_dim: 16

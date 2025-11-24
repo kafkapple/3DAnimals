@@ -1,0 +1,26 @@
+# Mouse Debug Training (Fast validation - 15 minutes)
+# Same as train_mouse.yaml but with reduced iterations for quick testing
+
+defaults:
+  - dataset: mouse
+  - model: mouse
+  - _self_
+
+exp_name: mouse_debug
+num_iters: 5000               # 5K for quick test (15-20 min)
+save_checkpoint_freq: 1000
+log_image_freq: 200
+
+device: cuda
+gpu_ids: [0]
+disable_tf32: true
+
+wandb:
+  project: mouse_fauna
+  mode: offline  # Offline for debug
+  tags: [mouse, debug]
+
+output_dir: results/${exp_name}
+seed: 42
+run_train: true
+run_test: false
