@@ -114,17 +114,22 @@ def get_data_loaders(cfg: DataLoaderConfig, dataset_split_num=-1):
         return loader
 
     if cfg.train_data_dir is not None:
-        assert osp.isdir(cfg.train_data_dir), f"Training data directory does not exist: {cfg.train_data_dir}"
+        # For fauna dataset, FaunaDataset handles path resolution internally
+        # It expects a root directory and constructs paths like {root}/large_scale/{animal}/{split}
+        if cfg.data_type != 'fauna':
+            assert osp.isdir(cfg.train_data_dir), f"Training data directory does not exist: {cfg.train_data_dir}"
         print(f"Loading training data from {cfg.train_data_dir}")
         train_loader = get_loader(mode='train', data_dir=cfg.train_data_dir)
 
     if cfg.val_data_dir is not None:
-        assert osp.isdir(cfg.val_data_dir), f"Validation data directory does not exist: {cfg.val_data_dir}"
+        if cfg.data_type != 'fauna':
+            assert osp.isdir(cfg.val_data_dir), f"Validation data directory does not exist: {cfg.val_data_dir}"
         print(f"Loading validation data from {cfg.val_data_dir}")
         val_loader = get_loader(mode='val', data_dir=cfg.val_data_dir)
 
     if cfg.test_data_dir is not None:
-        assert osp.isdir(cfg.test_data_dir), f"Testing data directory does not exist: {cfg.test_data_dir}"
+        if cfg.data_type != 'fauna':
+            assert osp.isdir(cfg.test_data_dir), f"Testing data directory does not exist: {cfg.test_data_dir}"
         print(f"Loading testing data from {cfg.test_data_dir}")
         test_loader = get_loader(mode='test', data_dir=cfg.test_data_dir)
 
