@@ -1,0 +1,25 @@
+# Fauna Multi-Animal Debug Configuration
+# Quick validation with all animals
+
+defaults:
+  - base_fauna
+  - _self_
+
+exp_name: fauna_multi_debug
+num_iters: 5000              # Quick test
+save_checkpoint_freq: 1000
+log_image_freq: 200
+
+device: cuda
+gpu_ids: [0]
+disable_tf32: true
+
+wandb:
+  project: fauna_multi_animal
+  mode: offline
+  tags: [fauna, multi_animal, debug]
+
+output_dir: results/${exp_name}
+seed: 42
+run_train: true
+run_test: false

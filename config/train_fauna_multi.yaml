@@ -1,0 +1,35 @@
+# Fauna Multi-Animal Training Configuration
+# Trains on ALL available animals simultaneously
+# Recommended for: Strong generalization, transfer learning
+
+defaults:
+  - base_fauna
+  - _self_
+
+# Experiment
+exp_name: fauna_multi_animal
+run_name: ${exp_name}_${now:%Y%m%d_%H%M%S}
+
+# Training iterations (scaled for multi-animal)
+num_iters: 200000            # 200K for multi-animal (vs 50K for single)
+save_checkpoint_freq: 10000  # Every ~2 hours
+log_image_freq: 1000         # Every ~20 minutes
+
+# Hardware
+device: cuda
+gpu_ids: [0]
+disable_tf32: true
+
+# Logging
+wandb:
+  project: fauna_multi_animal
+  mode: online
+  tags: [fauna, multi_animal, all_animals]
+
+# Output
+output_dir: results/${exp_name}
+resume: null
+seed: 42
+run_train: true
+run_test: false
+keep_num_checkpoint: 10      # Keep more checkpoints for multi-animal
