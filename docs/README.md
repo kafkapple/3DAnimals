@@ -32,8 +32,18 @@ User guides and reference documentation:
 - **[RTX 3060 Setup Guide](guides/RTX_3060_SETUP_GUIDE.md)** - **TF32 CUBLAS error solution**
 
 #### Dataset & Preparation
-- **[Fauna Dataset Guide](FAUNA_DATASET_GUIDE.md)** - Dataset structure and usage
-- **[Dataset Preparation Guide](FAUNA_DATASET_PREPARATION_GUIDE.md)** - How to prepare datasets
+- **[Fauna Dataset Complete Guide](FAUNA_DATASET_COMPLETE_GUIDE.md)** ⭐ - **통합 가이드: 구조 + 준비 + 자동화** (2025-11-24 updated)
+  - Quick Start (3단계로 시작)
+  - 전체 데이터셋 구조 이해
+  - 파일 스펙 상세
+  - 자동화 스크립트 (마스크 생성, box.txt, metadata)
+  - 동물별 가이드 (생쥐, 고양이, 말 등)
+  - Config 작성 가이드
+  - 검증 및 문제 해결
+
+**Old documentation** (deprecated, archived):
+- [Fauna Dataset Guide](archive/deprecated/FAUNA_DATASET_GUIDE.md) - 구조 이해 중심
+- [Dataset Preparation Guide](archive/deprecated/FAUNA_DATASET_PREPARATION_GUIDE.md) - 실전 중심
 
 #### Technical Guides
 - **[Installation Guide](guides/INSTALL.md)** - Environment setup
@@ -62,21 +72,26 @@ This documentation follows a systematic structure:
 
 ```
 docs/
-├── README.md                          # This index file
-├── FAUNA_DATASET_GUIDE.md             # Main dataset guide
-├── FAUNA_DATASET_PREPARATION_GUIDE.md # Dataset preparation
-├── research/                          # Research notes (YYMMDD_*.md)
+├── README.md                               # This index file
+├── FAUNA_DATASET_COMPLETE_GUIDE.md         # ⭐ 통합 데이터셋 가이드 (2025-11-24)
+├── research/                               # Research notes (YYMMDD_*.md)
 │   ├── 251123_fauna_mouse_full_training_session.md
 │   ├── 251123_fauna_mouse_checkpoint_quality_comparison.md
 │   └── [other research notes...]
-├── status/                            # Current project status
+├── guides/                                 # Technical guides
+│   ├── QUICKSTART_MANUAL.md
+│   ├── RTX_3060_SETUP_GUIDE.md
+│   └── [other guides...]
+├── status/                                 # Current project status
 │   ├── CURRENT_STATUS.md
 │   └── LATEST_SESSION_SUMMARY.md
-└── archive/                           # Historical documents
-    ├── deprecated/                    # Outdated files
-    ├── old_quickstarts/               # Old quickstart versions
-    ├── old_references/                # Old command references
-    └── old_guides/                    # Old guide versions
+└── archive/                                # Historical documents
+    ├── deprecated/                         # Outdated files
+    │   ├── FAUNA_DATASET_GUIDE.md         # (archived 2025-11-24)
+    │   └── FAUNA_DATASET_PREPARATION_GUIDE.md # (archived 2025-11-24)
+    ├── old_quickstarts/                    # Old quickstart versions
+    ├── old_references/                     # Old command references
+    └── old_guides/                         # Old guide versions
 ```
 
 ### File Naming Conventions
@@ -91,7 +106,7 @@ docs/
 
 ### For New Users
 1. Start with: [251121 System Comprehensive Guide](research/251121_3danimals_system_comprehensive_guide.md)
-2. Dataset setup: [Fauna Dataset Guide](FAUNA_DATASET_GUIDE.md)
+2. Dataset setup: [Fauna Dataset Complete Guide](FAUNA_DATASET_COMPLETE_GUIDE.md) ⭐
 3. Quick inference: [Inference Quickstart](research/INFERENCE_QUICKSTART.md)
 
 ### For Training

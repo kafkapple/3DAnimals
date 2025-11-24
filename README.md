@@ -11,6 +11,23 @@ This repository contains the unified codebase for several projects on articulate
 - [Ponymation: Learning Articulated 3D Animal Motions from Unlabeled Online Videos](https://keqiangsun.github.io/projects/ponymation/) (ECCV 2024) [![arXiv](https://img.shields.io/badge/arXiv-2312.13604-b31b1b.svg?style=flat-square)](https://arxiv.org/abs/2312.13604) - an articulated 3D animal motion generative model
 
 
+## 📚 Documentation
+
+**NEW: Comprehensive Guides Available!**
+
+- **[Dataset Preparation Guide](./docs/FAUNA_DATASET_PREPARATION_GUIDE.md)** - How to prepare your own animal datasets
+  - ✅ No uniform image size required (auto-resized)
+  - ✅ Auto-mask generation with SAM/GrabCut
+  - ✅ Complete Python scripts included
+  - ✅ Minimal requirements: Images + Masks
+
+- **[System Comprehensive Guide](./docs/reports/251121_3danimals_system_comprehensive_guide.md)** - Complete system overview
+  - Dataset structure and requirements
+  - Training workflows (debug-first principle)
+  - Inference and visualization
+  - Adding new animal datasets (step-by-step)
+  - Troubleshooting common issues
+
 ## Installation
 See [INSTALL.md](./INSTALL.md).
 
@@ -117,10 +134,65 @@ To train it on the provided giraffe, zebra, or cow datasets, which are much smal
 ### Data
 The `Fauna Dataset`, which can be downloaded via the script `data/fauna/download_fauna_dataset.sh`, consists of video frames and images sourced from the Internet, as well as images from [DOVE](https://dove3d.github.io/), [APT-36K](https://github.com/pandorgan/APT-36K), [Animal3D](https://xujiacong.github.io/Animal3D/), and [Animals-with-Attributes](https://cvml.ista.ac.at/AwA2/).
 
+#### Adding Your Own Animal Dataset
+
+**Quick Start**: See [Dataset Preparation Guide](./docs/FAUNA_DATASET_PREPARATION_GUIDE.md) for detailed instructions.
+
+**Minimal Requirements**:
+```
+data/fauna/Fauna_dataset/large_scale/my_animal/
+└── train/
+    └── seq_000/
+        ├── 0000000_rgb.png    # Image (any size, auto-resized to 256×256)
+        ├── 0000000_mask.png   # Mask (binary: 0=background, 255=foreground)
+        ├── 0000001_rgb.png
+        ├── 0000001_mask.png
+        └── ...
+```
+
+**Key Facts**:
+- ✅ **Image size**: Any size (auto-resized), no need for uniform sizes
+- ✅ **Mask generation**: Use SAM, GrabCut, or manual annotation (scripts provided)
+- ✅ **Auto-generation**: `box.txt` and `metadata.json` can be auto-generated from masks
+- ✅ **Minimum data**: 50-100 images recommended (more is better)
+
+**Quick Setup**:
+```bash
+# 1. Use provided script to convert your images
+python scripts/convert_to_fauna_format.py \
+  --input_dir ~/my_animal_images \
+  --output_dir data/fauna/Fauna_dataset/large_scale \
+  --animal_name my_animal \
+  --auto_generate_masks True  # Auto-generate masks with SAM/GrabCut
+
+# 2. Copy config templates
+cp config/dataset/fauna_new_animal_template.yaml config/dataset/fauna_my_animal.yaml
+cp config/model/fauna_new_animal_template.yaml config/model/fauna_my_animal.yaml
+cp config/train_fauna_new_animal_template.yaml config/train_fauna_my_animal.yaml
+
+# 3. Edit configs (adjust animal size parameters)
+# See templates for detailed parameter guidelines
+
+# 4. Run debug training first (15-30 min)
+python run.py --config-name train_fauna_my_animal_debug
+
+# 5. Run full training (10-12 hours on RTX 3060)
+python run.py --config-name train_fauna_my_animal
+```
+
 ### Training
 To train 3D-Fauna on the Fauna Dataset, simply run:
 ```shell
 python run.py --config-name train_fauna
+```
+
+**Debug-First Principle**: Always run debug mode first before full training!
+```shell
+# Debug mode (5K iterations, ~15-30 min)
+python run.py --config-name train_fauna_mouse_debug
+
+# Full training (200K iterations, ~10-12 hours)
+python run.py --config-name train_fauna_mouse_from_scratch
 ```
 
 
@@ -180,8 +252,58 @@ If you use this repository or find the papers useful for your research, please c
 }
 ```
 
+## FAQ
+
+### Q: Do all images need to be the same size?
+
+**A**: No! Images are automatically resized to 256×256 during loading. You can have images of any size (1920×1080, 640×480, etc.) in the same dataset.
+
+### Q: What if I don't have masks?
+
+**A**: Masks are required, but can be auto-generated using:
+- **SAM (Segment Anything)** - Best quality
+- **GrabCut** - Good balance
+- **Threshold** - Simple but effective
+
+See [Dataset Preparation Guide](./docs/FAUNA_DATASET_PREPARATION_GUIDE.md) for auto-generation scripts.
+
+### Q: What's the minimum dataset size?
+
+**A**:
+- **Minimum**: 30-50 images (may work but lower quality)
+- **Recommended**: 100-200 images (good quality)
+- **Ideal**: 200+ images (best quality)
+
+Quality also depends on diversity (various poses/viewpoints).
+
+### Q: How long does training take?
+
+**A**: On RTX 3060 12GB:
+- **Debug mode**: 5K iters, ~15-30 minutes
+- **Few-shot**: 50-100K iters, ~2-5 hours
+- **Full training**: 200K iters, ~10-12 hours
+
+### Q: Can I use videos?
+
+**A**: Yes! Extract frames using the provided scripts:
+```python
+python scripts/extract_frames_from_video.py --video_path ~/animal.mp4 --fps 2
+```
+Then follow the normal dataset preparation workflow.
+
+### Q: What GPU do I need?
+
+**A**:
+- **RTX 3060 12GB**: Small animals (grid_res=64, batch_size=4-6)
+- **RTX 3090 24GB**: Medium animals (grid_res=128, batch_size=8-12)
+- **A100 40GB**: Large animals (grid_res=256, batch_size=12-16)
+
+See [System Guide](./docs/reports/251121_3danimals_system_comprehensive_guide.md#appendix-b-gpu-memory-requirements) for detailed memory requirements.
+
 ## TODO
 
 - [ ] Ponymation dataset update
 - [ ] Data processing script
 - [ ] Metrics evaluation script
+- [x] Dataset preparation guide
+- [x] System comprehensive documentation

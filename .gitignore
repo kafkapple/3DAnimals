@@ -15,6 +15,13 @@ data/fauna_dataset
 wandb/
 *.npz
 
+# Large model files
+*.pth
+*.ckpt
+*.pt
+*.safetensors
+*.bin
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
