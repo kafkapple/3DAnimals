@@ -1,103 +1,123 @@
 # 3DAnimals Documentation
 
-이 폴더는 프로젝트 개발 중 발견된 문제, 해결 방법, 그리고 Best Practice를 문서화합니다.
-
-## 📁 폴더 구조
-
-```
-docs/
-├── README.md                    (이 파일)
-├── reports/                     버그 분석 및 기술 보고서
-│   └── 20251109_arti_params_none_error.md
-├── guides/                      개발 가이드 및 Best Practices
-│   ├── progressive_training_best_practices.md
-│   └── coding_defensive_programming.md
-└── troubleshooting/             문제 해결 가이드 (향후 추가)
-```
-
-## 📚 문서 목록
-
-### 보고서 (Reports)
-
-| 날짜 | 제목 | 설명 |
-|------|------|------|
-| 2025-11-09 | [arti_params None Reference 버그](reports/20251109_arti_params_none_error.md) | Progressive Training 환경에서 발생한 RuntimeError 분석 및 해결 |
-
-### 가이드 (Guides)
-
-| 제목 | 설명 | 대상 |
-|------|------|------|
-| [Progressive Training Best Practices](guides/progressive_training_best_practices.md) | Progressive Training 환경에서 안전한 코드 작성 방법 | 개발자 |
-| [Defensive Programming Guide](guides/coding_defensive_programming.md) | Python 방어적 프로그래밍 기법 | 모든 개발자 |
-
-## 🎯 문서 작성 가이드라인
-
-### 보고서 (Reports) 작성 시
-
-**파일명 형식:** `YYYYMMDD_brief_description.md`
-
-**포함 내용:**
-- 날짜, 버전, 작성자
-- Executive Summary
-- 문제 상황 및 에러 로그
-- 근본 원인 분석
-- 해결 방법
-- 영향 범위
-- 학습 포인트
-
-### 가이드 (Guides) 작성 시
-
-**파일명 형식:** `topic_name.md`
-
-**포함 내용:**
-- 대상 독자
-- 목차
-- 개념 설명
-- 예제 코드 (Good/Bad 비교)
-- 체크리스트
-- 참고 자료
-
-## 🔍 문서 검색
-
-### 주제별 색인
-
-**Progressive Training:**
-- [Progressive Training Best Practices](guides/progressive_training_best_practices.md)
-- [arti_params 버그 분석](reports/20251109_arti_params_none_error.md)
-
-**코드 품질:**
-- [Defensive Programming](guides/coding_defensive_programming.md)
-
-**버그 수정:**
-- [arti_params None Reference](reports/20251109_arti_params_none_error.md)
-
-## 📝 문서 기여 방법
-
-1. **버그 발견 및 수정 시:**
-   - `docs/reports/`에 상세 분석 보고서 작성
-   - 날짜를 포함한 파일명 사용
-   - Git commit에 문서 링크 포함
-
-2. **Best Practice 발견 시:**
-   - `docs/guides/`에 가이드 문서 작성
-   - 실제 예제 포함
-   - 기존 문서 업데이트
-
-3. **문제 해결 팁:**
-   - `docs/troubleshooting/`에 FAQ 형식으로 작성 (향후)
-
-## 🏷️ 버전 관리
-
-각 문서는 하단에 변경 이력 테이블 포함:
-
-| 날짜 | 버전 | 변경 내용 | 작성자 |
-|------|------|----------|--------|
-| YYYY-MM-DD | 1.0 | 초안 작성 | Name |
-
-## 📞 문의
-
-문서 내용에 대한 질문이나 개선 제안은 GitHub Issue로 등록해주세요.
+**Last Updated**: 2025-11-24
 
 ---
 
-**마지막 업데이트:** 2025-11-09
+## Quick Navigation
+
+### 📚 Research Notes (YYMMDD Format)
+Latest research findings and session summaries:
+
+- **[251123 Full Training Session](research/251123_fauna_mouse_full_training_session.md)** - Complete 50K iteration training
+- **[251123 Checkpoint Quality Comparison](research/251123_fauna_mouse_checkpoint_quality_comparison.md)** - checkpoint3000 vs checkpoint5000 analysis
+- **[251121 System Comprehensive Guide](research/251121_3danimals_system_comprehensive_guide.md)** - End-to-end system overview
+- **[251121 Mouse DANNCE Training Setup](research/251121_mouse_dannce_training_setup.md)** - Mouse dataset integration
+- **[251119 Mouse Training Setup Session](research/251119_fauna_mouse_training_setup_session.md)** - Initial mouse training configuration
+- **[251113 Monocular 3D Reconstruction Analysis](research/251113_monocular_3d_reconstruction_comprehensive_analysis.md)** - Theoretical foundations
+- **[251112 Fauna Mouse Final Findings](research/251112_research_fauna_mouse_final_findings.md)** - Mouse integration results
+- **[251110 Work Summary: Mammal Integration](research/251110_work_summary_mammal_integration.md)** - Mammal model integration
+- **[251110 SDF Pretraining Status](research/251110_mammal_sdf_pretraining_status.md)** - SDF initialization approach
+- **[251110 Mouse Prior Shape Integration](research/251110_mammal_mouse_prior_shape_integration.md)** - Prior shape analysis
+- **[251110 Mouse Dataset Integration Analysis](research/251110_mouse_dataset_integration_analysis.md)** - Dataset structure analysis
+- **[251110 Training & Inference Guide](research/251110_fauna_training_inference_guide.md)** - Training workflow documentation
+- **[251109 arti_params None Error](research/20251109_arti_params_none_error.md)** - Bug fix: articulation parameter handling
+- **[Inference Quickstart](research/INFERENCE_QUICKSTART.md)** - Quick inference guide
+
+### 📖 Guides
+User guides and reference documentation:
+
+#### **⭐ Essential Guides (Start Here)**
+- **[Quickstart Manual](guides/QUICKSTART_MANUAL.md)** - **Complete workflow: data → training → inference**
+- **[RTX 3060 Setup Guide](guides/RTX_3060_SETUP_GUIDE.md)** - **TF32 CUBLAS error solution**
+
+#### Dataset & Preparation
+- **[Fauna Dataset Guide](FAUNA_DATASET_GUIDE.md)** - Dataset structure and usage
+- **[Dataset Preparation Guide](FAUNA_DATASET_PREPARATION_GUIDE.md)** - How to prepare datasets
+
+#### Technical Guides
+- **[Installation Guide](guides/INSTALL.md)** - Environment setup
+- **[Visualization Guide](guides/VISUALIZATION_GUIDE.md)** - Result visualization
+- **[CUDA Setup Guide](guides/CUDA_FIX_GUIDE.md)** - CUDA configuration
+- **[Architecture Analysis](guides/ARCHITECTURE_ANALYSIS.md)** - System architecture
+
+### 📊 Current Status
+Active project status and summaries:
+
+- **[Current Training Status](status/CURRENT_STATUS.md)** - Latest training progress
+- **[Latest Session Summary](status/LATEST_SESSION_SUMMARY.md)** - Most recent work summary
+
+### 🗂️ Archive
+Historical documents and deprecated content:
+
+- **[Deprecated Files](archive/deprecated/)** - Old status files and outdated approaches
+
+---
+
+## Documentation Organization
+
+This documentation follows a systematic structure:
+
+### Directory Structure
+
+```
+docs/
+├── README.md                          # This index file
+├── FAUNA_DATASET_GUIDE.md             # Main dataset guide
+├── FAUNA_DATASET_PREPARATION_GUIDE.md # Dataset preparation
+├── research/                          # Research notes (YYMMDD_*.md)
+│   ├── 251123_fauna_mouse_full_training_session.md
+│   ├── 251123_fauna_mouse_checkpoint_quality_comparison.md
+│   └── [other research notes...]
+├── status/                            # Current project status
+│   ├── CURRENT_STATUS.md
+│   └── LATEST_SESSION_SUMMARY.md
+└── archive/                           # Historical documents
+    ├── deprecated/                    # Outdated files
+    ├── old_quickstarts/               # Old quickstart versions
+    ├── old_references/                # Old command references
+    └── old_guides/                    # Old guide versions
+```
+
+### File Naming Conventions
+
+- **Research notes**: `YYMMDD_descriptive_title.md` (e.g., `251123_fauna_mouse_full_training_session.md`)
+- **Guides**: `DESCRIPTIVE_TITLE.md` (e.g., `FAUNA_DATASET_GUIDE.md`)
+- **Status files**: `CURRENT_STATUS.md`, `LATEST_SESSION_SUMMARY.md`
+
+---
+
+## Key Documentation Files
+
+### For New Users
+1. Start with: [251121 System Comprehensive Guide](research/251121_3danimals_system_comprehensive_guide.md)
+2. Dataset setup: [Fauna Dataset Guide](FAUNA_DATASET_GUIDE.md)
+3. Quick inference: [Inference Quickstart](research/INFERENCE_QUICKSTART.md)
+
+### For Training
+1. Training overview: [251121 Mouse DANNCE Training Setup](research/251121_mouse_dannce_training_setup.md)
+2. Latest results: [251123 Full Training Session](research/251123_fauna_mouse_full_training_session.md)
+3. Quality analysis: [251123 Checkpoint Quality Comparison](research/251123_fauna_mouse_checkpoint_quality_comparison.md)
+
+### For Developers
+1. System architecture: [251121 System Comprehensive Guide](research/251121_3danimals_system_comprehensive_guide.md)
+2. Bug fixes: [251109 arti_params None Error](research/20251109_arti_params_none_error.md)
+3. Dataset integration: [251110 Mouse Dataset Integration Analysis](research/251110_mouse_dataset_integration_analysis.md)
+
+---
+
+## Maintenance Policy
+
+### Adding New Documentation
+- **Research notes**: Always use `YYMMDD_topic.md` format in `docs/research/`
+- **Status updates**: Update `docs/status/CURRENT_STATUS.md` instead of creating new files
+- **Guides**: Update existing guides rather than creating duplicates
+
+### Quarterly Cleanup
+- Review `docs/status/` and archive old status files
+- Consolidate similar research notes if needed
+- Update main guides with latest findings
+
+---
+
+**For questions or issues, refer to the main project README.md in the repository root.**
