@@ -31,22 +31,33 @@ print_error() {
 # Function to check data
 check_data() {
     print_info "Checking dataset..."
-    DATA_DIR="${PROJECT_DIR}/data/fauna/Fauna_dataset/large_scale/mouse/train/seq_000"
+    DATA_DIR="${PROJECT_DIR}/data/fauna_mouse/large_scale/mouse_dannce_6view/train"
 
     if [ ! -d "$DATA_DIR" ]; then
         print_error "Data directory not found: $DATA_DIR"
         exit 1
     fi
 
-    NUM_RGB=$(ls ${DATA_DIR}/*_rgb.png 2>/dev/null | wc -l)
-    NUM_MASK=$(ls ${DATA_DIR}/*_mask.png 2>/dev/null | wc -l)
-    NUM_BOX=$(ls ${DATA_DIR}/*_box.txt 2>/dev/null | wc -l)
-    NUM_META=$(ls ${DATA_DIR}/*_metadata.json 2>/dev/null | wc -l)
+    # Count sequences (directories)
+    NUM_SEQS=$(ls -d ${DATA_DIR}/*/ 2>/dev/null | wc -l)
+    print_info "Found $NUM_SEQS sequences in dataset"
 
-    print_info "Found files: RGB=$NUM_RGB, Mask=$NUM_MASK, Box=$NUM_BOX, Metadata=$NUM_META"
+    if [ "$NUM_SEQS" -eq 0 ]; then
+        print_error "No sequences found in $DATA_DIR"
+        exit 1
+    fi
 
-    if [ "$NUM_RGB" -ne 50 ] || [ "$NUM_MASK" -ne 50 ] || [ "$NUM_BOX" -ne 50 ] || [ "$NUM_META" -ne 50 ]; then
-        print_error "Expected 50 files of each type, but found different counts!"
+    # Check first sequence files
+    FIRST_SEQ=$(ls -d ${DATA_DIR}/*/ 2>/dev/null | head -1)
+    NUM_RGB=$(ls ${FIRST_SEQ}*_rgb.png 2>/dev/null | wc -l)
+    NUM_MASK=$(ls ${FIRST_SEQ}*_mask.png 2>/dev/null | wc -l)
+    NUM_BOX=$(ls ${FIRST_SEQ}*_box.txt 2>/dev/null | wc -l)
+    NUM_META=$(ls ${FIRST_SEQ}*_metadata.json 2>/dev/null | wc -l)
+
+    print_info "First sequence files: RGB=$NUM_RGB, Mask=$NUM_MASK, Box=$NUM_BOX, Metadata=$NUM_META"
+
+    if [ "$NUM_RGB" -eq 0 ] || [ "$NUM_MASK" -eq 0 ]; then
+        print_error "Missing required files (RGB or mask) in $FIRST_SEQ"
         exit 1
     fi
 
@@ -131,7 +142,7 @@ show_usage() {
 # Main script
 main() {
     print_info "=== Mouse Training Script ==="
-    print_info "Dataset: 50 frames at data/fauna/Fauna_dataset/large_scale/mouse/"
+    print_info "Dataset: DANNCE 6-view at data/fauna_mouse/large_scale/mouse_dannce_6view/"
     print_info "Config: config/train_mouse*.yaml"
     print_info ""
 
