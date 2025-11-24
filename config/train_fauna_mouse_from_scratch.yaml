@@ -1,0 +1,201 @@
+# Fauna Mouse From-Scratch Training
+# No pretrained weights - Train from ellipsoid initialization
+
+hydra:
+  run:
+    dir: .
+  output_subdir: results/fauna_mouse_from_scratch
+
+defaults:
+  - base_fauna
+  - dataset: fauna
+  - model: fauna
+  - _self_
+
+# ========== Experiment Info ==========
+experiment:
+  name: "fauna_mouse_from_scratch"
+  description: "Train Fauna on mouse dataset from scratch (no pretrained weights)"
+  mode: "scratch"
+  seed: 42
+
+# ========== NO Pretrained Weights ==========
+pretrained:
+  checkpoint_path: null  # Start from scratch
+  freeze_encoder: false
+  freeze_base_predictor: false
+  freeze_texture: false
+  freeze_articulation: false
+
+# ========== Dataset ==========
+dataset:
+  data_type: fauna
+  train_data_dir: "/home/joon/dev/3DAnimals/data/fauna_mouse"
+  val_data_dir: "/home/joon/dev/3DAnimals/data/fauna_mouse"
+  test_data_dir: "/home/joon/dev/3DAnimals/data/fauna_mouse"
+
+  in_image_size: 256
+  out_image_size: 256
+
+  batch_size: 4  # Can use larger batch for from-scratch
+  num_workers: 4
+
+  random_shuffle_samples_train: true
+  random_xflip_train: true
+  load_dino_feature: false
+  dino_feature_dim: 16
+  load_keypoint: false
+
+  background_mode: none
+
+# ========== Model ==========
+model:
+  name: Fauna
+  spatial_scale: 5  # Mouse-specific
+
+  cfg_predictor_base:
+    cfg_shape:
+      grid_res: 64  # Reduced from 128 for RTX 3060 12GB
+      init_sdf: 'ellipsoid'  # Start from ellipsoid (no horse/cow prior)
+      pretrained_sdf: null
+
+  cfg_predictor_instance:
+    cfg_articulation:
+      articulation_iter_range: [20000, inf]  # Enable later for stability
+      num_body_bones: 8
+      body_bones_mode: z_minmax_y+
+      num_legs: 4
+      num_leg_bones: 3
+      max_arti_angle: 90
+      skinning_temperature: 0.05
+      static_root_bones: false
+      output_multiplier: 0.1
+      attach_legs_to_body_iter_range: [60000, inf]
+      legs_to_body_joint_indices: null
+      constrain_legs: true
+      enable_refine: false
+
+    enable_deform: false
+    cfg_deform:
+      deform_iter_range: [150000, inf]
+
+    cfg_texture:
+      texture_iter_range: [0, inf]
+      cout: 9
+      num_layers: 8
+      hidden_size: 256
+
+# ========== Optimizer ==========
+cfg_optim_base:
+  lr: 0.001  # Standard scratch training LR
+  weight_decay: 0.001
+
+cfg_optim_instance:
+  lr: 0.001
+  weight_decay: 0.001
+
+cfg_optim_discriminator:
+  lr: 0.0005
+  weight_decay: 0.001
+
+lr_scheduler:
+  type: ExponentialLR
+  gamma: 0.99995  # Slow decay for long training
+
+# ========== Losses ==========
+cfg_loss:
+  # Reconstruction
+  mask_loss_weight: 100.0
+  mask_dt_loss_weight: 0.
+  mask_inv_dt_loss_weight: 1000.0
+  rgb_loss_weight: 1.0
+  dino_feat_im_loss_weight: 10.0
+
+  # SDF Regularization (VERY STRONG for stability)
+  sdf_bce_reg_loss_weight: 20.0  # Even stronger than ultra-reg
+  sdf_gradient_reg_loss_weight: 5.0
+  sdf_reg_decay_start_iter: 50000  # Keep strong for 50K iters
+
+  # Articulation
+  arti_reg_loss_iter_range: [20000, inf]
+  arti_reg_loss_weight: 0.5
+
+  # Deformation
+  deform_reg_loss_weight: 20.0
+
+  # Logit loss
+  logit_loss_weight: 1.0
+  logit_loss_dino_feat_im_loss_multiplier: 50.
+  logit_loss_mask_multiplier: 0.05
+  logit_loss_mask_inv_dt_multiplier: 0.05
+
+  # Progressive loss weights
+  logit_loss_dino_feat_im_loss_multiplier_dict: {0: 50., 30000: 500.}
+  dino_feat_im_loss_weight_dict: {0: 10., 30000: 1.}
+
+# ========== Training ==========
+run_train: true
+run_test: false
+num_iters: 200000  # Long training for from-scratch (Fauna paper uses 1M)
+seed: 42
+gpu: 0
+
+# Checkpointing
+save_checkpoint_freq: 5000
+keep_num_checkpoint: 20
+checkpoint_dir: results/fauna_mouse_from_scratch
+checkpoint_path: null  # No checkpoint to load
+load_optim: false
+reset_epoch: false
+resume: true
+
+# Logging
+use_logger: true
+logger_type: tensorboard
+log_image_freq: 500
+log_loss_freq: 50
+log_train: true
+log_val: true
+save_train_result_freq: 10000
+
+# ========== Rendering ==========
+cfg_render:
+  spatial_scale: 5
+  background_mode: none
+  render_flow: false
+  cam_pos_z_offset: 10
+  fov: 25
+  renderer_spp: 1
+
+# ========== Discriminator ==========
+cfg_mask_discriminator:
+  enable_iter: [100000, 200000]  # Enable later for stability
+
+# ========== Augmentation ==========
+augmentation:
+  random_flip: true
+  random_scale_range: [0.9, 1.1]
+  random_rotate_deg: 10
+  color_jitter: 0.2
+  random_crop: false
+
+# ========== Monitoring ==========
+monitoring:
+  early_stopping:
+    enabled: false  # Don't stop early for long training
+    patience: 50000
+    metric: "val_loss"
+    min_delta: 0.001
+
+  metrics:
+    - mask_iou
+    - rgb_psnr
+    - dino_similarity
+    - arti_reg_loss
+    - total_loss
+
+# ========== Debugging ==========
+debug:
+  visualize_every: 500
+  save_intermediate_shapes: false
+  verbose: true

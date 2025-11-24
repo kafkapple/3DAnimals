@@ -1,0 +1,237 @@
+# Fine-tuning Fauna for Mouse Dataset
+# Based on pretrained Fauna quadruped model
+
+hydra:
+  run:
+    dir: .
+  output_subdir: results/fauna_mouse_finetune
+
+defaults:
+  - base_fauna
+  - dataset: fauna
+  - model: fauna
+  - _self_
+
+# ========== Experiment Info ==========
+experiment:
+  name: "fauna_mouse_finetune"
+  description: "Fine-tune pretrained Fauna on DANNCE mouse 6-view dataset"
+  mode: "finetune"  # vs "scratch"
+  seed: 42
+
+# ========== Pretrained Weights ==========
+pretrained:
+  # Load pretrained Fauna model with MAMMAL mouse shape guidance
+  checkpoint_path: "/home/joon/dev/3DAnimals/results/fauna_mouse_mammal_init.pth"
+
+  # Freeze strategy (3-phase training)
+  freeze_encoder: true              # Keep DINO features frozen
+  freeze_base_predictor: false      # Fine-tune shape predictor
+  freeze_texture: false             # Fine-tune texture
+  freeze_articulation: false        # Fine-tune articulation (critical for mouse)
+
+  # Gradual unfreezing schedule
+  unfreeze_schedule:
+    encoder: null                   # Never unfreeze (keep generic features)
+    base_predictor: null            # Fine-tune from start
+    texture: 0                      # Fine-tune from start
+    articulation: 5000              # Enable after 5K iters (vs 20K in original)
+
+# ========== Dataset ==========
+dataset:
+  data_type: fauna
+
+  # Paths (absolute paths to avoid Hydra working dir issues)
+  # FaunaDataset expects root dir, it will add /large_scale/category_name automatically
+  train_data_dir: "/home/joon/dev/3DAnimals/data/fauna_mouse"
+  val_data_dir: "/home/joon/dev/3DAnimals/data/fauna_mouse"
+  test_data_dir: "/home/joon/dev/3DAnimals/data/fauna_mouse"
+
+  # Image settings (resized to 256×256)
+  in_image_size: 256
+  out_image_size: 256
+
+  # Batch settings (small for fine-tuning)
+  batch_size: 2                     # Reduced to 2 for GPU memory (was 4)
+  num_workers: 4
+
+  # Data loading
+  random_shuffle_samples_train: true
+  random_xflip_train: true          # Horizontal flip augmentation
+  load_dino_feature: false          # DANNCE data doesn't have precomputed DINO features
+  dino_feature_dim: 16
+  load_keypoint: false              # DANNCE doesn't use Fauna keypoint format
+
+  # Background
+  background_mode: none             # Black background (matches DANNCE masks)
+
+# ========== Model ==========
+model:
+  name: Fauna
+
+  # Mouse-specific scale adjustment
+  spatial_scale: 5                  # Reduced from 7 (mice smaller than horses)
+
+  # Base predictor config
+  cfg_predictor_base:
+    cfg_shape:
+      grid_res: 128                   # Match pretrained (don't change)
+      init_sdf: 'ellipsoid'           # Ellipsoid prior (better than horse for mouse)
+      pretrained_sdf: null            # No MAMMAL prior (using ellipsoid instead)
+
+  # Articulation settings (CRITICAL for mouse adaptation)
+  cfg_predictor_instance:
+    cfg_articulation:
+      articulation_iter_range: [5000, inf]    # Enable earlier (vs 20K)
+
+      # Bone structure (same as Fauna)
+      num_body_bones: 8
+      body_bones_mode: z_minmax_y+
+      num_legs: 4
+      num_leg_bones: 3
+
+      # Mouse-specific parameters
+      max_arti_angle: 90              # More flexible than large animals
+      skinning_temperature: 0.05      # Keep same
+      static_root_bones: false
+      output_multiplier: 0.1
+
+      # Attachment (auto-detect)
+      attach_legs_to_body_iter_range: [10000, inf]  # Earlier than 60K
+      legs_to_body_joint_indices: null  # Auto-detect
+
+      # Regularization
+      constrain_legs: true            # Enable for small dataset
+      enable_refine: false
+
+    # Deformation (disable initially for stability)
+    enable_deform: false
+    cfg_deform:
+      deform_iter_range: [100000, inf]  # Very late (or disable)
+
+    # Texture
+    cfg_texture:
+      texture_iter_range: [0, inf]
+      cout: 9
+      num_layers: 8
+      hidden_size: 256
+
+# ========== Optimizer ==========
+cfg_optim_base:
+  lr: 0.0001                          # 10x lower than scratch (0.001)
+  weight_decay: 0.01                  # Stronger regularization
+
+cfg_optim_instance:
+  lr: 0.0001                          # Fine-tuning learning rate
+  weight_decay: 0.01
+
+cfg_optim_discriminator:
+  lr: 0.00005                         # Even lower for discriminator
+  weight_decay: 0.01
+
+# Learning rate scheduler
+lr_scheduler:
+  type: ExponentialLR
+  gamma: 0.9999                       # Slow decay
+
+# ========== Losses ==========
+cfg_loss:
+  # Reconstruction losses
+  mask_loss_weight: 100.0
+  mask_dt_loss_weight: 0.
+  mask_inv_dt_loss_weight: 1000.0
+  rgb_loss_weight: 1.0
+  dino_feat_im_loss_weight: 10.0
+
+  # Regularization (ULTRA STRONG to prevent mesh collapse)
+  sdf_bce_reg_loss_weight: 10.0       # Ultra high (was 5.0) to prevent collapse
+  sdf_gradient_reg_loss_weight: 2.0   # Ultra high (was 1.0) to keep smooth
+  sdf_reg_decay_start_iter: 20000     # Keep strong even longer (was 10000)
+
+  # Articulation regularization
+  arti_reg_loss_iter_range: [5000, inf]  # Match articulation start
+  arti_reg_loss_weight: 0.5           # Stronger than Fauna (0.2)
+
+  # Deformation regularization
+  deform_reg_loss_weight: 20.0        # Higher (10.0 → 20.0)
+
+  # Logit loss (viewpoint selection)
+  logit_loss_weight: 1.0
+  logit_loss_dino_feat_im_loss_multiplier: 50.
+  logit_loss_mask_multiplier: 0.05
+  logit_loss_mask_inv_dt_multiplier: 0.05
+
+  # Progressive loss weights (copied from Fauna)
+  logit_loss_dino_feat_im_loss_multiplier_dict: {0: 50., 30000: 500.}
+  dino_feat_im_loss_weight_dict: {0: 10., 30000: 1.}
+
+# ========== Training ==========
+# Top-level training parameters (read by TrainerConfig dataclass)
+run_train: true
+run_test: false
+num_iters: 50000                    # vs 1M for scratch
+seed: 42
+gpu: 0
+
+# Checkpointing
+save_checkpoint_freq: 2500          # Every 2.5K iters
+keep_num_checkpoint: 10             # Keep recent 10
+checkpoint_dir: results/fauna_mouse_finetune
+checkpoint_path: "/home/joon/dev/3DAnimals/results/fauna_mouse_mammal_init.pth"  # Load MAMMAL-guided pretrained weights
+load_optim: false                   # Don't load optimizer state (pretrained checkpoint doesn't have it)
+reset_epoch: true                   # Reset iteration counter to 0 for fine-tuning
+resume: true                        # Auto-resume if checkpoint exists
+
+# Logging
+use_logger: true
+logger_type: tensorboard            # wandb or tensorboard
+log_image_freq: 500
+log_loss_freq: 50
+log_train: true
+log_val: true
+save_train_result_freq: 5000
+
+# ========== Rendering ==========
+cfg_render:
+  spatial_scale: 5                    # Match model.spatial_scale
+  background_mode: none
+  render_flow: false
+  cam_pos_z_offset: 10
+  fov: 25
+  renderer_spp: 1
+
+# ========== Discriminator ==========
+cfg_mask_discriminator:
+  enable_iter: [80000, 300000]        # Disable for fine-tuning (beyond 50K)
+
+# ========== Data Augmentation ==========
+augmentation:
+  # Aggressive augmentation for small dataset
+  random_flip: true
+  random_scale_range: [0.9, 1.1]
+  random_rotate_deg: 10
+  color_jitter: 0.2
+  random_crop: false                  # Keep false (might lose mouse)
+
+# ========== Monitoring ==========
+monitoring:
+  # Early stopping
+  early_stopping:
+    enabled: true
+    patience: 10000                   # Stop if no improvement for 10K iters
+    metric: "val_loss"
+    min_delta: 0.001
+
+  # Metrics to track
+  metrics:
+    - mask_iou
+    - rgb_psnr
+    - dino_similarity
+    - arti_reg_loss
+    - total_loss
+
+# ========== Debugging ==========
+debug:
+  visualize_every: 500
+  save_intermediate_shapes: false
+  verbose: true

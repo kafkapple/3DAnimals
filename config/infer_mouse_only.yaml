@@ -1,0 +1,60 @@
+# Mouse-Only Inference Configuration
+#
+# Purpose: Inference ONLY on mouse_dannce_6view dataset
+# Use: Load mouse-only checkpoint and test on mouse data
+
+defaults:
+  - dataset: fauna_mouse_dannce
+  - model: fauna_mouse_dannce
+  - _self_
+
+exp_name: mouse_only_infer
+run_name: ${exp_name}_${now:%Y%m%d_%H%M%S}
+
+# ==============================================================================
+# Checkpoint to Load
+# ==============================================================================
+# Update this path after training completes:
+resume: /home/joon/dev/3DAnimals/results/mouse_only_debug/checkpoint3000.pth
+
+# ==============================================================================
+# Dataset Configuration (MOUSE ONLY!)
+# ==============================================================================
+dataset:
+  train_data_dir: /home/joon/dev/3DAnimals/data/fauna/Mouse_only_dataset
+  val_data_dir: null
+  test_data_dir: /home/joon/dev/3DAnimals/data/fauna/Mouse_only_dataset
+
+# ==============================================================================
+# Hardware
+# ==============================================================================
+device: cuda
+gpu_ids: [0]
+
+# ==============================================================================
+# Run Mode
+# ==============================================================================
+run_train: false
+run_test: true
+
+# ==============================================================================
+# Output Directory
+# ==============================================================================
+output_dir: /home/joon/dev/3DAnimals/results/mouse_only_infer
+checkpoint_dir: /home/joon/dev/3DAnimals/results/mouse_only_infer
+
+# ==============================================================================
+# Logging
+# ==============================================================================
+log_val: false
+wandb:
+  mode: offline
+
+# ==============================================================================
+# Expected Output
+# ==============================================================================
+# Should generate ONLY mouse reconstructions:
+# - ~50 frames from mouse_dannce_6view
+# - No bear/elephant/horse/etc.
+# - All meshes should be mouse-shaped
+# ==============================================================================

@@ -10,7 +10,10 @@ outputs
 slurm.bash
 .vscode
 .hydra
-data/Fauna_dataset
+data/fauna_dataset
+
+wandb/
+*.npz
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

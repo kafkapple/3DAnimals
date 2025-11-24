@@ -1,0 +1,234 @@
+# Fauna Model Configuration for Markerless Mouse
+#
+# Dataset: 6-camera multi-view markerless mouse
+# Target: High-quality 3D mouse reconstruction with articulation
+# GPU: RTX 3060 12GB (optimized settings)
+
+defaults:
+  - fauna  # Inherit base fauna configuration
+
+name: Fauna  # Use Fauna model class
+
+# ==============================================================================
+# Base Predictor Configuration
+# ==============================================================================
+cfg_predictor_base:
+
+  # Shape Configuration (SDF Learning)
+  cfg_shape:
+    # Grid resolution - VERY LOW for RTX 3060 12GB (OOM fix)
+    grid_res: 32                            # Final resolution (32 for strict memory limit)
+    grid_res_coarse_iter_range: [0, 100000] # Use coarse until 100K iters
+    grid_res_coarse: 32                     # Keep same (already at minimum)
+
+    # Spatial scale - small for mouse
+    spatial_scale: 4.0  # Mouse is small animal (default 7.0)
+
+    # MLP architecture - compact for efficiency
+    num_layers: 5
+    hidden_size: 128    # Reduced from 256 for memory
+
+    # Positional encoding
+    embedder_freq: 8
+    embed_concat_pts: true
+
+    # Shape initialization
+    init_sdf: ellipsoid # Start from ellipsoid (good for quadrupeds)
+    pretrained_sdf: null
+
+    jitter_grid: 0.05
+    symmetrize: true    # Mouse has bilateral symmetry
+
+  # DINO Feature Configuration
+  cfg_dino:
+    feature_dim: 16
+    num_layers: 5
+    hidden_size: 128    # Match shape hidden_size
+    activation: sigmoid
+    embedder_freq: 8
+    embed_concat_pts: true
+    symmetrize: false
+    minmax: [0., 1.]
+
+  # Memory Bank Configuration
+  cfg_bank:
+    memory_bank_size: 50  # 50 samples (6 cameras × ~8 frames)
+
+# ==============================================================================
+# Instance Predictor Configuration
+# ==============================================================================
+cfg_predictor_instance:
+  spatial_scale: ${..cfg_render.spatial_scale}
+
+  # Image Encoder
+  cfg_encoder:
+    cout: 256
+    which_vit: dino_vits8
+    pretrained: true
+    frozen: true
+    final_layer_type: conv
+
+  # Texture Configuration
+  cfg_texture:
+    texture_iter_range: [0, inf]  # Enable from start
+    cout: 9
+    num_layers: 6       # Reduced from 8
+    hidden_size: 128    # Reduced from 256
+    activation: sigmoid
+    kd_minmax: [[0., 1.], [0., 1.], [0., 1.]]
+    embed_concat_pts: true
+    embedder_freq: 10
+    symmetrize: true
+
+  # Pose Estimation
+  cfg_pose:
+    architecture: encoder_dino_patch_key
+    cam_pos_z_offset: ${...cfg_render.cam_pos_z_offset}
+    fov: ${...cfg_render.fov}
+    max_trans_xy_range_ratio: 0.2
+    max_trans_z_range_ratio: 0.5
+    rot_rep: quadlookat
+    rot_temp_scalar: 1
+    naive_probs_iter: 2000
+    best_pose_start_iter: 6000
+    lookat_zeroy: true
+
+  # Deformation
+  enable_deform: true
+  cfg_deform:
+    deform_iter_range: [300000, inf]  # Enable late (mouse is small, less deformation)
+    num_layers: 4
+    hidden_size: 128
+    embed_concat_pts: true
+    embedder_freq: 10
+    symmetrize: true
+
+  # Articulation - Mouse skeleton
+  enable_articulation: true
+  cfg_articulation:
+    articulation_iter_range: [20000, inf]  # Enable early
+    architecture: attention
+    num_layers: 4
+    hidden_size: 128    # Reduced from 256
+    embedder_freq: 8
+    bone_feature_mode: sample+global
+
+    # Mouse skeleton structure
+    num_body_bones: 6   # Mouse has 6 body bones (smaller than default 8)
+    body_bones_mode: z_minmax_y+
+    num_legs: 4         # 4 legs
+    num_leg_bones: 3    # 3 bones per leg
+
+    attach_legs_to_body_iter_range: [60000, inf]
+    legs_to_body_joint_indices: null  # Auto-detect
+    static_root_bones: false
+    skinning_temperature: 0.05
+    max_arti_angle: 60
+    constrain_legs: false
+    output_multiplier: 0.1
+    enable_refine: false
+
+  # Lighting
+  enable_lighting: true
+  cfg_light:
+    num_layers: 4
+    hidden_size: 128
+    amb_diff_minmax: [[0.0, 1.0], [0.5, 1.0]]
+
+  cfg_additional:
+    iter_leg_rotation_start: 150000  # Earlier than default
+
+# ==============================================================================
+# Rendering Configuration
+# ==============================================================================
+cfg_render:
+  spatial_scale: 4.0      # Match base predictor (small for mouse)
+  background_mode: none   # Black background
+  render_flow: false
+  cam_pos_z_offset: 10
+  fov: 25
+  renderer_spp: 1
+
+# ==============================================================================
+# Loss Configuration
+# ==============================================================================
+cfg_loss:
+  # Mask losses
+  mask_loss_weight: 100.0
+  mask_dt_loss_weight: 0.
+  mask_inv_dt_loss_weight: 1000.0
+
+  # RGB loss
+  rgb_loss_weight: 1.0
+
+  # DINO feature loss
+  dino_feat_im_loss_weight: 10.0
+
+  # SDF regularization
+  sdf_reg_decay_start_iter: 10000
+  sdf_bce_reg_loss_weight: 0.
+  sdf_gradient_reg_loss_weight: 0.1
+
+  # Viewpoint selection
+  logit_loss_weight: 1.0
+  logit_loss_dino_feat_im_loss_multiplier: 50.0
+
+  # Articulation regularization
+  arti_reg_loss_iter_range: [60000, inf]
+  arti_reg_loss_weight: 0.2
+
+  # Deformation regularization
+  deform_reg_loss_weight: 10.0
+
+  # Fauna-specific (for multi-view large-scale training)
+  logit_loss_dino_feat_im_loss_multiplier_dict: {0: 50., 150000: 500.}
+  dino_feat_im_loss_weight_dict: {0: 10., 150000: 1.}
+  logit_loss_mask_multiplier: 0.05
+  logit_loss_mask_inv_dt_multiplier: 0.05
+
+# ==============================================================================
+# Optimizer Configuration
+# ==============================================================================
+cfg_optim_base:
+  lr: 0.001
+  weight_decay: 0.
+
+cfg_optim_instance:
+  lr: 0.0001
+  weight_decay: 0.
+
+cfg_optim_discriminator:
+  lr: 0.0001
+  weight_decay: 0.
+
+# ==============================================================================
+# Discriminator Configuration
+# ==============================================================================
+cfg_mask_discriminator:
+  enable_iter: [80000, 300000]
+
+# ==============================================================================
+# Notes
+# ==============================================================================
+#
+# GPU Memory Optimization (RTX 3060 12GB):
+# - grid_res: 64 (instead of 128 or 256)
+# - hidden_size: 128 (instead of 256)
+# - batch_size: 6 (matches number of cameras)
+#
+# Mouse-Specific Adjustments:
+# - spatial_scale: 4.0 (smaller than default 7.0)
+# - num_body_bones: 6 (smaller skeleton)
+# - Early articulation: [20000, inf]
+# - Late deformation: [300000, inf]
+#
+# Multi-View Benefits:
+# - 6 cameras provide excellent viewpoint coverage
+# - Better geometry constraints
+# - More robust pose estimation
+#
+# Training Time Estimates (RTX 3060):
+# - Debug (5K iters): ~15-20 min
+# - Full (200K iters): ~10-12 hours
+#
+# ==============================================================================

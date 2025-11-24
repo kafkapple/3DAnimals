@@ -21,6 +21,7 @@ class DMTetConfig:
     symmetrize: bool = False
     grid_res_coarse_iter_range: List[int] = None
     grid_res_coarse: int = 128
+    pretrained_sdf: str = None  # Path to pre-trained SDF weights
 
 
 @dataclass
@@ -45,8 +46,30 @@ class BasePredictorBase(nn.Module):
     def __init__(self, cfg: BasePredictorConfig):
         super().__init__()
         misc.load_cfg(self, cfg, BasePredictorConfig)
-        
+
         self.netShape = DMTetGeometry(**asdict(self.cfg_shape))
+
+        # Load pre-trained SDF weights if specified
+        if self.cfg_shape.pretrained_sdf is not None:
+            import os
+            pretrained_path = self.cfg_shape.pretrained_sdf
+            if os.path.exists(pretrained_path):
+                print(f"[BasePredictorBase] Loading pre-trained SDF from {pretrained_path}")
+                try:
+                    state_dict = torch.load(pretrained_path, map_location='cpu')
+                    # Only load MLP weights (netShape.mlp)
+                    missing, unexpected = self.netShape.load_state_dict(state_dict, strict=False)
+                    if missing:
+                        print(f"  ⚠️ Missing keys: {len(missing)} (expected, e.g., verts, indices)")
+                    if unexpected:
+                        print(f"  ⚠️ Unexpected keys: {unexpected}")
+                    print(f"  ✅ Pre-trained SDF loaded successfully")
+                except Exception as e:
+                    print(f"  ❌ Failed to load pre-trained SDF: {e}")
+                    print(f"     Continuing with default initialization")
+            else:
+                print(f"[BasePredictorBase] ⚠️ Pre-trained SDF not found: {pretrained_path}")
+                print(f"                     Continuing with default initialization")
 
         dino_minmax_tensor = torch.FloatTensor(self.cfg_dino.minmax).repeat(self.cfg_dino.feature_dim, 1)  # Nx2
         embedder_scalar = 2 * np.pi / self.cfg_shape.spatial_scale * 0.9  # originally (-0.5, 0.5) * spatial_scale rescale to (-pi, pi) * 0.9

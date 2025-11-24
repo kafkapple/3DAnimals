@@ -1,0 +1,118 @@
+# Fauna Mouse DANNCE Debug Configuration
+#
+# Purpose: Quick validation before full training
+# Dataset: 50 frames (5 sequences × 10 frames)
+# Duration: ~10-15 minutes
+# Use: ALWAYS run this first before full training!
+
+defaults:
+  - dataset: fauna_mouse_dannce
+  - model: fauna_mouse_dannce
+  - _self_
+
+# ==============================================================================
+# Experiment Naming
+# ==============================================================================
+exp_name: fauna_mouse_dannce_debug
+run_name: ${exp_name}_${now:%Y%m%d_%H%M%S}
+
+# ==============================================================================
+# Training Duration (DEBUG MODE)
+# ==============================================================================
+num_iters: 3000  # Short training for validation (10-15 min)
+
+# ==============================================================================
+# Checkpoint and Logging (FREQUENT for DEBUG)
+# ==============================================================================
+save_checkpoint_freq: 500   # Save every 500 iters
+log_image_freq: 100         # Log frequently to check progress
+eval_freq: -1               # Disable validation (same data)
+
+# ==============================================================================
+# Dataset Configuration
+# ==============================================================================
+dataset:
+  train_data_dir: /home/joon/dev/3DAnimals/data/fauna/Fauna_dataset
+  val_data_dir: null        # No separate validation
+  test_data_dir: null       # Will use train for testing in debug
+
+# ==============================================================================
+# Hardware Configuration
+# ==============================================================================
+device: cuda
+gpu_ids: [0]
+disable_tf32: true  # RTX 3060: CUBLAS error prevention
+
+# ==============================================================================
+# Logging Configuration
+# ==============================================================================
+log_val: false  # Disable validation logging (no separate val set)
+
+# ==============================================================================
+# Wandb Logging (OFFLINE for DEBUG)
+# ==============================================================================
+wandb:
+  project: fauna_mouse_dannce
+  entity: null
+  mode: offline  # Offline mode for debug (faster)
+  tags:
+    - fauna
+    - mouse
+    - dannce
+    - debug
+    - few_shot
+  notes: |
+    Debug mode for Mouse DANNCE dataset validation.
+    Dataset: 50 frames (5 sequences × 10 frames)
+    Quick check before full training.
+
+# ==============================================================================
+# Resume Training
+# ==============================================================================
+resume: null  # Start from scratch
+
+# ==============================================================================
+# Random Seed
+# ==============================================================================
+seed: 42
+
+# ==============================================================================
+# Output Directory
+# ==============================================================================
+output_dir: results/${exp_name}
+
+# ==============================================================================
+# Training Configuration
+# ==============================================================================
+run_train: true
+run_test: false
+mixed_precision: null
+load_optim: true
+keep_num_checkpoint: 3
+
+# ==============================================================================
+# Debug Checklist
+# ==============================================================================
+# After running debug mode, verify:
+#
+# ✅ Data loading works
+#    - Check: "Found X frames" in logs
+#    - Expected: 50 frames
+#
+# ✅ Model initializes without errors
+#    - Check: No shape mismatches
+#    - Check: No CUDA OOM
+#
+# ✅ Training loop runs
+#    - Check: Loss decreases
+#    - Check: ~10-15 minutes for 3000 iters
+#
+# ✅ Checkpoints save successfully
+#    - Check: results/fauna_mouse_dannce_debug/checkpoint*.pth
+#
+# ✅ Images logged to WandB/Tensorboard
+#    - Check: Reconstructions look reasonable
+#
+# If all checks pass → proceed to full training
+# If any check fails → debug before full training
+# ==============================================================================

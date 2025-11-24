@@ -1,0 +1,110 @@
+# Mouse-Only Training Configuration (Debug Mode)
+#
+# Purpose: Train ONLY on mouse_dannce_6view dataset
+# Dataset: 50 frames (5 sequences × 10 frames) - Mouse only
+# Duration: ~10-15 minutes
+# Key difference: Uses Mouse_only_dataset (single category)
+
+defaults:
+  - dataset: fauna_mouse_dannce
+  - model: fauna_mouse_dannce
+  - _self_
+
+# ==============================================================================
+# Experiment Naming
+# ==============================================================================
+exp_name: mouse_only_debug
+run_name: ${exp_name}_${now:%Y%m%d_%H%M%S}
+
+# ==============================================================================
+# Training Duration (DEBUG MODE)
+# ==============================================================================
+num_iters: 3000  # Short training for validation (10-15 min)
+
+# ==============================================================================
+# Checkpoint and Logging (FREQUENT for DEBUG)
+# ==============================================================================
+save_checkpoint_freq: 500   # Save every 500 iters
+log_image_freq: 100         # Log frequently to check progress
+eval_freq: -1               # Disable validation (same data)
+
+# ==============================================================================
+# Dataset Configuration (MOUSE ONLY!)
+# ==============================================================================
+dataset:
+  train_data_dir: /home/joon/dev/3DAnimals/data/fauna/Mouse_only_dataset
+  val_data_dir: null        # No separate validation
+  test_data_dir: /home/joon/dev/3DAnimals/data/fauna/Mouse_only_dataset
+
+# ==============================================================================
+# Hardware Configuration
+# ==============================================================================
+device: cuda
+gpu_ids: [0]
+
+# ==============================================================================
+# Logging Configuration
+# ==============================================================================
+log_val: false  # Disable validation logging (no separate val set)
+
+# ==============================================================================
+# Wandb Logging (OFFLINE for DEBUG)
+# ==============================================================================
+wandb:
+  project: mouse_only_training
+  entity: null
+  mode: offline  # Offline mode for debug (faster)
+  tags:
+    - mouse_only
+    - mouse
+    - dannce
+    - debug
+    - few_shot
+  notes: |
+    Mouse-only training (no other animals).
+    Dataset: 50 frames from mouse_dannce_6view only.
+    Purpose: Validate single-category training.
+
+# ==============================================================================
+# Resume Training
+# ==============================================================================
+resume: null  # Start from scratch (do not use mixed-animal checkpoint!)
+
+# ==============================================================================
+# Random Seed
+# ==============================================================================
+seed: 42
+
+# ==============================================================================
+# Output Directory
+# ==============================================================================
+output_dir: results/${exp_name}
+checkpoint_dir: results/${exp_name}
+
+# ==============================================================================
+# Training Configuration
+# ==============================================================================
+run_train: true
+run_test: false
+mixed_precision: null
+load_optim: true
+keep_num_checkpoint: 3
+
+# ==============================================================================
+# Verification Checklist
+# ==============================================================================
+# After running, verify mouse-only training:
+#
+# ✅ Data loading shows ONLY mouse frames
+#    - Check: "Found X frames" should be ~50 (not thousands)
+#    - Check: No bear/elephant/horse mentions in logs
+#
+# ✅ Model trains on mouse data only
+#    - Check: Loss decreases
+#    - Check: Logged images show only mice
+#
+# ✅ Checkpoints save successfully
+#    - Check: results/mouse_only_debug/checkpoint*.pth
+#
+# If verified → can proceed to full mouse-only training
+# ==============================================================================

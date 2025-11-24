@@ -1,0 +1,34 @@
+# Inference configuration for Mouse DANNCE debug checkpoint
+defaults:
+  - dataset: fauna_mouse_dannce
+  - model: fauna_mouse_dannce
+  - _self_
+
+exp_name: fauna_mouse_dannce_infer
+run_name: ${exp_name}_${now:%Y%m%d_%H%M%S}
+
+# Load checkpoint (absolute path)
+resume: /home/joon/dev/3DAnimals/results/checkpoint3000.pth
+
+# Dataset - Use Fauna dataset root (it will find large_scale/ subdirectory)
+dataset:
+  train_data_dir: /home/joon/dev/3DAnimals/data/fauna/Fauna_dataset
+  val_data_dir: null
+  test_data_dir: /home/joon/dev/3DAnimals/data/fauna/Fauna_dataset  # Use train as test (no separate test set)
+
+# Hardware
+device: cuda
+gpu_ids: [0]
+
+# Run only inference
+run_train: false
+run_test: true
+
+# Output - Use dedicated inference directory (absolute path)
+output_dir: /home/joon/dev/3DAnimals/results/mouse_dannce_infer
+checkpoint_dir: /home/joon/dev/3DAnimals/results/mouse_dannce_infer
+
+# Logging
+log_val: false
+wandb:
+  mode: offline

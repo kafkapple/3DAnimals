@@ -1,0 +1,42 @@
+# Fauna Dataset Configuration for Markerless Mouse - A6000 (48GB) Version
+#
+# Dataset: markerless_mouse_1_nerf
+# Source: /home/joon/dev/pose-splatter/data/markerless_mouse_1_nerf
+# Cameras: 6 views
+# Frames: ~100 frames per camera (sampled from 1000 at 10fps)
+# Resolution: 1152x1024 (original) -> 256x256 (processed)
+
+# Dataset type
+data_type: fauna
+
+# Image resolution settings - FULL RESOLUTION for A6000
+in_image_size: 256      # Full input size
+out_image_size: 256     # Full output size
+
+# Training batch settings - LARGE BATCH for A6000
+batch_size: 8           # 8 images per batch (A6000 can handle more)
+num_workers: 8          # More workers for faster data loading
+
+# Data directory paths (auto-filled by hydra)
+train_data_dir: null    # Auto: data/fauna/Fauna_dataset/large_scale/mouse_markerless_6view/train
+val_data_dir: null      # Auto: data/fauna/Fauna_dataset/large_scale/mouse_markerless_6view/val
+test_data_dir: null
+
+# Data augmentation
+random_shuffle_samples_train: false  # Keep temporal consistency
+random_xflip_train: false            # Mouse has bilateral symmetry, but keep original for now
+
+# Background settings
+background_mode: none   # Black background (masks are already clean)
+
+# Optional features
+load_flow: false              # No optical flow needed
+load_dino_feature: false      # Will extract online during training
+load_dino_cluster: false
+dino_feature_dim: 16
+
+# Notes:
+# - A6000 48GB: Can handle full resolution and large batches
+# - batch_size: 8-12 recommended for optimal GPU utilization
+# - Training will be 3-4x faster than RTX 3060
+# - Higher quality results due to larger batch and higher resolution

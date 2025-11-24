@@ -1,0 +1,119 @@
+# Fauna Training Configuration - Markerless Mouse DEBUG MODE
+#
+# ⚠️ DEBUG MODE: Quick validation run (~15-20 minutes)
+# Purpose: Verify data pipeline, model initialization, and training loop
+# Run this BEFORE full training to catch issues early!
+#
+# Usage:
+#   conda run -n 3danimals python run.py --config-name train_fauna_mouse_markerless_debug
+
+defaults:
+  - model: fauna_mouse_markerless
+  - dataset: fauna_mouse_markerless
+  - _self_
+
+# ==============================================================================
+# Experiment Naming
+# ==============================================================================
+exp_name: fauna_mouse_markerless_debug
+run_name: ${exp_name}_${now:%Y%m%d_%H%M%S}
+
+# Training mode
+run_train: true
+run_test: false
+
+# ==============================================================================
+# Training Duration (DEBUG MODE)
+# ==============================================================================
+num_iters: 5000  # Short run for validation (15-20 min on RTX 3060)
+
+# ==============================================================================
+# Checkpoint and Logging (DEBUG MODE)
+# ==============================================================================
+save_checkpoint_freq: 1000   # Save frequently for debugging
+log_image_freq: 100          # Log images frequently
+eval_freq: 1000              # Evaluate frequently
+
+# ==============================================================================
+# Dataset Paths
+# ==============================================================================
+dataset:
+  train_data_dir: /home/joon/dev/3DAnimals/data/fauna/Fauna_dataset
+  val_data_dir: /home/joon/dev/3DAnimals/data/fauna/Fauna_dataset
+  test_data_dir: null
+
+# ==============================================================================
+# Hardware Configuration
+# ==============================================================================
+device: cuda
+gpu_ids: [0]
+
+# ==============================================================================
+# Wandb Logging (DEBUG MODE)
+# ==============================================================================
+wandb:
+  project: fauna_mouse_markerless
+  entity: null
+  mode: offline  # Offline mode for debug (or disabled)
+  tags:
+    - fauna
+    - mouse
+    - markerless
+    - multi-view
+    - debug
+  notes: |
+    DEBUG MODE: Markerless mouse 6-camera multi-view dataset
+    - Dataset: mouse_markerless_6view
+    - Cameras: 6 views
+    - Frames: ~100 per camera
+    - GPU: RTX 3060 12GB
+    - Duration: 5K iters (~15-20 min)
+    - Purpose: Validation before full training
+
+# ==============================================================================
+# Resume Training
+# ==============================================================================
+resume: null  # Start from scratch
+
+# ==============================================================================
+# Random Seed
+# ==============================================================================
+seed: 42
+
+# ==============================================================================
+# Output Directory
+# ==============================================================================
+output_dir: results/${exp_name}
+
+# ==============================================================================
+# Debug Mode Checklist
+# ==============================================================================
+#
+# Before running:
+# ✅ Dataset generated: data/fauna/Fauna_dataset/large_scale/mouse_markerless_6view/
+# ✅ RGB images: *_rgb.png
+# ✅ Masks: *_mask.png
+# ✅ Metadata: *_metadata.json, *_box.txt
+# ✅ Config files: fauna_mouse_markerless.yaml
+# ✅ GPU memory: nvidia-smi (check available memory)
+# ✅ Conda env: conda activate 3danimals
+#
+# What to check during debug run:
+# - Data loading works (no crashes in first 100 iters)
+# - Model initialization successful
+# - Training loop runs without errors
+# - GPU memory usage stable (~8-10GB)
+# - Loss values reasonable (not NaN)
+# - Images logged to WandB/local
+# - Checkpoint saving works
+#
+# Expected results:
+# - Completion: 15-20 minutes
+# - Memory usage: 8-10GB GPU
+# - Losses: Decreasing trend (even if small)
+# - No crashes or OOM errors
+#
+# If debug succeeds → Run full training
+# If debug fails → Check error messages and fix before full run
+#
+# ==============================================================================

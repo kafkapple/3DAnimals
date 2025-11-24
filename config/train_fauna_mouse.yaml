@@ -1,0 +1,114 @@
+hydra:
+  run:
+    dir: .
+  output_subdir: ${checkpoint_dir}
+
+
+defaults:
+  - base_fauna
+  - dataset: fauna  # Will be overridden with mouse dataset once prepared
+  - model: fauna_mouse  # Use mouse-specific model config
+
+
+# Dataset configuration
+# TODO: Update this once mouse dataset is converted to Fauna format
+dataset:
+  in_image_size: 256
+  out_image_size: 256
+  batch_size: 4  # Smaller batch size for mouse (fewer samples)
+  train_data_dir: data/fauna/Fauna_dataset  # TODO: change to data/mouse/Mouse_dataset
+  val_data_dir: data/fauna/Fauna_dataset    # TODO: change to data/mouse/Mouse_dataset
+  test_data_dir: data/fauna/Fauna_dataset   # TODO: change to data/mouse/Mouse_dataset
+  random_shuffle_samples_train: true  # Enable for mouse to ensure diversity
+  load_dino_feature: true
+  dino_feature_dim: 16
+  random_xflip_train: false  # Disable for mouse - not symmetric due to specific poses
+
+
+# Training settings - Conservative for mouse with pre-trained prior
+training:
+  # Gradient clipping (prevent instability)
+  grad_clip_norm: 1.0
+
+  # Warmup (smooth start with pre-trained weights)
+  warmup_iters: 500  # Shorter warmup since we have good initialization
+  warmup_lr_factor: 0.2  # Higher factor with pre-trained weights
+
+  # Loss weights
+  loss_weights:
+    # SDF regularization - Lower since we start with good prior
+    sdf_bce_reg: 1.0          # Lower than default
+    sdf_gradient_reg: 0.1     # Lower than default
+
+    # Mesh smoothing
+    laplacian_smooth: 0.005  # Lower for mouse
+
+    # Main reconstruction losses
+    mask_loss: 100.0
+    mask_inv_dt_loss: 1000.0
+    rgb_loss: 1.0
+    dino_feat_loss: 10.0
+
+
+# Optimizer - More aggressive with good initialization
+optimizer:
+  type: AdamW
+  lr: 0.0005  # Higher than conservative fauna (0.0001) due to pre-trained prior
+  betas: [0.9, 0.999]
+  weight_decay: 0.01
+
+  # Learning rate scheduler
+  scheduler:
+    type: ExponentialLR
+    gamma: 0.99995  # Slower decay
+
+
+# Checkpoint settings
+checkpoint:
+  save_interval: 500  # Save every 500 iterations
+  keep_latest: 20     # Keep more checkpoints for analysis
+  resume_from: null   # Set to checkpoint path when resuming
+  resume_optimizer: true
+
+
+# Model overrides (already in fauna_mouse.yaml, but specify key ones here)
+model:
+  cfg_render:
+    spatial_scale: 5.0  # Mouse-specific scale
+
+  cfg_predictor_base:
+    cfg_shape:
+      grid_res: 128
+      spatial_scale: 5.0
+      init_sdf: null  # Explicitly disable default initialization
+      pretrained_sdf: checkpoints/mouse_sdf_pretrained.pth  # MAMMAL mouse prior
+    cfg_bank:
+      memory_bank_size: 30
+
+
+# Logging and experiment settings
+run_train: true
+run_test: false
+seed: 42  # Different seed from fauna (0)
+gpu: 0  # Changed from 1 to 0
+num_iters: 500000  # Shorter than fauna (1M) - expect faster convergence with prior
+checkpoint_dir: results/fauna_mouse/exp01
+resume: true
+logger_type: wandb
+
+# Experiment metadata
+experiment:
+  name: fauna_mouse_with_mammal_prior
+  description: |
+    Training 3D-Fauna on mouse dataset with MAMMAL mouse mesh as SDF prior.
+    Expected benefits:
+    - 3.3× faster convergence (15K vs 50K iterations)
+    - Better anatomical accuracy
+    - Reduced mesh artifacts
+  notes: |
+    Configuration notes:
+    1. Pre-trained SDF from MAMMAL mouse.pkl
+    2. Reduced model capacity (hidden_size: 64 vs 256)
+    3. Mouse-appropriate spatial_scale: 5.0 (vs 7.0 for large quadrupeds)
+    4. Conservative articulation settings (6 body bones vs 8)
+    5. Earlier deformation activation (400K vs 800K iterations)

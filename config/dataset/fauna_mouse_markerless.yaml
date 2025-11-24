@@ -1,0 +1,42 @@
+# Fauna Dataset Configuration for Markerless Mouse (6-camera multi-view)
+#
+# Dataset: markerless_mouse_1_nerf
+# Source: /home/joon/dev/pose-splatter/data/markerless_mouse_1_nerf
+# Cameras: 6 views
+# Frames: ~100 frames per camera (sampled from 1000 at 10fps)
+# Resolution: 1152x1024 (original) -> 256x256 (processed)
+
+# Dataset type
+data_type: fauna
+
+# Image resolution settings
+in_image_size: 256      # Minimum size for encoder (128 causes kernel size error)
+out_image_size: 256     # Minimum size for encoder
+
+# Training batch settings
+batch_size: 2           # Minimal batch size (OOM fix)
+num_workers: 2          # Data loading workers (reduced)
+
+# Data directory paths (auto-filled by hydra)
+train_data_dir: null    # Auto: data/fauna/Fauna_dataset/large_scale/mouse_markerless_6view/train
+val_data_dir: null      # Auto: data/fauna/Fauna_dataset/large_scale/mouse_markerless_6view/val
+test_data_dir: null
+
+# Data augmentation
+random_shuffle_samples_train: false  # Keep temporal consistency
+random_xflip_train: false            # Mouse has bilateral symmetry, but keep original for now
+
+# Background settings
+background_mode: none   # Black background (masks are already clean)
+
+# Optional features
+load_flow: false              # No optical flow needed
+load_dino_feature: false      # Will extract online during training
+load_dino_cluster: false
+dino_feature_dim: 16
+
+# Notes:
+# - Multi-view dataset: 6 cameras provide rich viewpoint coverage
+# - Keypoints available: can be used for evaluation/visualization
+# - Clean masks: SimpleClick annotation provides high-quality masks
+# - Batch size = num_cameras for efficient multi-view training

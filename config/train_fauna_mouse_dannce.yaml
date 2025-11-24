@@ -1,0 +1,181 @@
+# Fauna Mouse DANNCE Full Training Configuration
+#
+# Purpose: Train 3D mouse reconstruction from DANNCE 6-view dataset
+# Dataset: 50 frames (5 sequences × 10 frames) - FEW-SHOT
+# Strategy: From scratch with few-shot adaptations
+# Expected Duration: ~2-3 hours (RTX 3060 12GB)
+#
+# IMPORTANT: Run debug mode first!
+#   python run.py --config-name train_fauna_mouse_dannce_debug
+
+defaults:
+  - dataset: fauna_mouse_dannce
+  - model: fauna_mouse_dannce
+  - _self_
+
+# ==============================================================================
+# Experiment Naming
+# ==============================================================================
+exp_name: fauna_mouse_dannce_from_scratch
+run_name: ${exp_name}_${now:%Y%m%d_%H%M%S}
+
+# ==============================================================================
+# Training Duration (FEW-SHOT OPTIMIZED)
+# ==============================================================================
+num_iters: 50000  # Few-shot training (50-100K recommended)
+                  #
+                  # Time estimation (RTX 3060, grid_res=64):
+                  # - 1K iters ≈ 2-3 min
+                  # - 10K iters ≈ 25-30 min
+                  # - 50K iters ≈ 2-3 hours
+                  #
+                  # Note: Limited data (50 frames), so shorter training
+                  # compared to large-scale (200K iters)
+
+# ==============================================================================
+# Checkpoint and Logging
+# ==============================================================================
+save_checkpoint_freq: 5000   # Save every 5K (every 30 min)
+log_image_freq: 500          # Log frequently (every 15 min)
+eval_freq: -1                # No validation (same as train)
+
+# ==============================================================================
+# Dataset Configuration
+# ==============================================================================
+dataset:
+  train_data_dir: /home/joon/dev/3DAnimals/data/fauna/Fauna_dataset
+  val_data_dir: null   # Symlink points to same as train
+  test_data_dir: null  # Symlink points to same as train
+
+# ==============================================================================
+# Hardware Configuration
+# ==============================================================================
+device: cuda
+gpu_ids: [0]
+disable_tf32: true  # RTX 3060: CUBLAS error prevention
+
+# ==============================================================================
+# Logging Configuration
+# ==============================================================================
+log_val: false  # Disable validation logging (no separate val set)
+
+# ==============================================================================
+# Wandb Logging
+# ==============================================================================
+wandb:
+  project: fauna_mouse_dannce
+  entity: null
+  mode: online  # Online logging for full training
+  tags:
+    - fauna
+    - mouse
+    - dannce
+    - from_scratch
+    - few_shot
+    - 6view
+  notes: |
+    Training Mouse 3D reconstruction from DANNCE 6-view dataset.
+
+    Dataset:
+    - Source: DANNCE mouse dataset
+    - Frames: 50 (5 sequences × 10 frames)
+    - Views: Multi-view synchronized
+    - Resolution: 256×256
+
+    Model:
+    - Animal: Mouse (small quadruped)
+    - Spatial scale: 4.5
+    - Grid resolution: 64 (RTX 3060 friendly)
+    - Body bones: 5
+    - Articulation: Enabled at 10K iters
+
+    Training:
+    - Strategy: From scratch (few-shot)
+    - Iterations: 50K
+    - Expected time: 2-3 hours
+
+# ==============================================================================
+# Resume Training
+# ==============================================================================
+resume: null  # Start from scratch
+              # To resume: set to checkpoint path
+              # Example: results/fauna_mouse_dannce_from_scratch/checkpoint25000.pth
+
+# ==============================================================================
+# Random Seed
+# ==============================================================================
+seed: 42
+
+# ==============================================================================
+# Output Directory
+# ==============================================================================
+output_dir: results/${exp_name}
+
+# ==============================================================================
+# Training Configuration
+# ==============================================================================
+run_train: true
+run_test: false
+mixed_precision: null
+load_optim: true
+keep_num_checkpoint: 5  # Keep last 5 checkpoints
+
+# ==============================================================================
+# Expected Training Milestones
+# ==============================================================================
+#
+# Iteration 0-5K:
+#   - SDF initialization (ellipsoid → mouse shape)
+#   - Rough pose estimation
+#   - Basic texture learning
+#
+# Iteration 5K-10K:
+#   - Shape refinement
+#   - Better pose estimation
+#   - Texture details emerge
+#
+# Iteration 10K-30K:
+#   - Articulation enabled (10K)
+#   - Skeleton learning begins
+#   - Better pose variations
+#
+# Iteration 30K-50K:
+#   - Legs attach to body (30K)
+#   - Full articulation refinement
+#   - Texture and lighting polish
+#
+# Expected Results:
+#   - Good 3D mouse shape
+#   - Reasonable articulation (limited by few-shot data)
+#   - Multi-view consistency
+#
+# Known Limitations (due to few-shot):
+#   - May not generalize to new poses well
+#   - Articulation quality limited by data diversity
+#   - Consider collecting more data (100+ frames) for better results
+#
+# ==============================================================================
+
+# ==============================================================================
+# Next Steps After Training
+# ==============================================================================
+#
+# 1. Visualize results:
+#    python visualization/visualize_results_fauna.py \
+#      --config-name test_fauna \
+#      checkpoint_dir=results/fauna_mouse_dannce_from_scratch \
+#      checkpoint_name=checkpoint50000.pth \
+#      dataset.test_data_dir=data/fauna/Fauna_dataset/large_scale/mouse_dannce_6view/test \
+#      render_modes=[input_view,rotation]
+#
+# 2. Check quality:
+#    - Mask IoU (should be > 0.8)
+#    - RGB PSNR (should be > 20)
+#    - Visual inspection (rotation video)
+#
+# 3. If quality is low:
+#    - Collect more data (target: 100+ frames)
+#    - Try different hyperparameters
+#    - Consider fine-tuning from pretrained model
+#
+# ==============================================================================

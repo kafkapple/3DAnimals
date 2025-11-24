@@ -181,6 +181,7 @@ class DMTetGeometry(torch.nn.Module):
         self.init_sdf = init_sdf
         self.jitter_grid = jitter_grid
         self.symmetrize = symmetrize
+        self.ellipsoid_scale_multiplier = kwargs.get('ellipsoid_scale_multiplier', 0.15)  # Support mouse-scale animals
         self.load_tets(self.grid_res, self.grid_scale)
 
         embedder_scalar = 2 * np.pi / self.grid_scale * 0.9  # originally (-0.5*s, 0.5*s) rescale to (-pi, pi) * 0.9
@@ -220,7 +221,14 @@ class DMTetGeometry(torch.nn.Module):
             scale = self.grid_scale
         else:
             self.grid_scale = scale
-        tets = np.load('data/tets/{}_tets.npz'.format(grid_res))
+        import os
+        # Handle both absolute and relative paths for Hydra compatibility
+        tets_path = f'data/tets/{grid_res}_tets.npz'
+        if not os.path.exists(tets_path):
+            # Try absolute path from project root
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            tets_path = os.path.join(project_root, tets_path)
+        tets = np.load(tets_path)
         self.verts = torch.tensor(tets['vertices'], dtype=torch.float32, device='cuda') * scale  # verts original scale (-0.5, 0.5)
         self.indices = torch.tensor(tets['indices'], dtype=torch.long, device='cuda')
         self.generate_edges()
@@ -244,7 +252,9 @@ class DMTetGeometry(torch.nn.Module):
             init_sdf = init_radius - pts.norm(dim=-1, keepdim=True)  # init sdf is a sphere centered at origin
             sdf = sdf + init_sdf
         elif self.init_sdf == 'ellipsoid':
-            rxy = self.grid_scale * 0.15
+            # Support custom ellipsoid scale for small animals (e.g., mouse)
+            scale_multiplier = getattr(self, 'ellipsoid_scale_multiplier', 0.15)
+            rxy = self.grid_scale * scale_multiplier
             xs, ys, zs = pts.unbind(-1)
             init_sdf = rxy - torch.stack([xs, ys, zs/2], -1).norm(dim=-1, keepdim=True)  # init sdf is approximately an ellipsoid centered at origin
             sdf = sdf + init_sdf

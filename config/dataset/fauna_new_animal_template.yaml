@@ -1,0 +1,50 @@
+# Fauna Dataset Configuration Template for New Animals
+#
+# Instructions:
+# 1. Copy this file to: config/dataset/fauna_{animal_name}.yaml
+# 2. Replace {animal_name} with your animal name (e.g., mouse, rabbit, etc.)
+# 3. Adjust parameters based on your dataset size and requirements
+#
+# Example:
+#   cp config/dataset/fauna_new_animal_template.yaml config/dataset/fauna_rabbit.yaml
+
+# Dataset type (DO NOT CHANGE)
+data_type: fauna
+
+# Image resolution settings
+in_image_size: 256      # Input image size (resize to this)
+out_image_size: 256     # Output image size
+
+# Training batch settings
+batch_size: 6           # Batch size (adjust based on GPU memory)
+                        # RTX 3060 12GB: 4-6
+                        # RTX 3090 24GB: 8-12
+                        # A100 40GB: 12-16
+
+num_workers: 4          # Number of data loading workers (adjust based on CPU cores)
+
+# Data directory paths (will be auto-filled by hydra)
+train_data_dir: null    # Auto: data/fauna/Fauna_dataset/{scale}/{animal}/train
+val_data_dir: null      # Auto: data/fauna/Fauna_dataset/{scale}/{animal}/val
+test_data_dir: null     # Auto: data/fauna/Fauna_dataset/{scale}/{animal}/test
+
+# Data augmentation
+random_shuffle_samples_train: false  # Shuffle samples in training
+random_xflip_train: false            # Random horizontal flip augmentation
+                                     # Set to true for more training variation
+
+# Background settings
+background_mode: none   # Options: none (black), white, checkerboard, background, input
+                        # none: black background (recommended for most cases)
+
+# Optional features
+load_flow: false              # Load optical flow (for video sequences)
+load_dino_feature: false      # Load pre-extracted DINO features
+load_dino_cluster: false      # Load DINO clustering results
+dino_feature_dim: 16          # DINO feature dimension (if load_dino_feature=true)
+
+# Notes:
+# - For few-shot dataset (< 100 images): keep batch_size small (4-6)
+# - For large-scale dataset (> 1000 images): can increase batch_size
+# - Enable random_xflip_train for animals with symmetric body structure
+# - DINO features improve quality but require additional preprocessing

@@ -1,0 +1,86 @@
+# Fauna Training Configuration - Markerless Mouse A6000 FULL TRAINING
+#
+# High-quality training for A6000 48GB
+# Expected duration: ~5-8 hours (A6000 48GB, 200K iterations)
+#
+# Usage:
+#   conda run -n 3danimals python run.py --config-name train_fauna_mouse_markerless_a6000
+
+defaults:
+  - model: fauna_mouse_markerless_a6000
+  - dataset: fauna_mouse_markerless_a6000
+  - _self_
+
+# ==============================================================================
+# Experiment Naming
+# ==============================================================================
+exp_name: fauna_mouse_markerless_a6000
+run_name: ${exp_name}_${now:%Y%m%d_%H%M%S}
+
+# Training mode
+run_train: true
+run_test: false
+
+# ==============================================================================
+# Training Duration
+# ==============================================================================
+num_iters: 200000  # Full training (5-8 hours on A6000)
+
+# ==============================================================================
+# Checkpoint and Logging
+# ==============================================================================
+save_checkpoint_freq: 10000  # Save every 10K iters
+log_image_freq: 1000         # Log images every 1K iters
+eval_freq: 5000              # Evaluate every 5K iters
+
+# ==============================================================================
+# Dataset Paths (Absolute paths for Hydra compatibility)
+# ==============================================================================
+dataset:
+  train_data_dir: /home/joon/dev/3DAnimals/data/fauna/Fauna_dataset
+  val_data_dir: /home/joon/dev/3DAnimals/data/fauna/Fauna_dataset
+  test_data_dir: null
+
+# ==============================================================================
+# Hardware Configuration
+# ==============================================================================
+device: cuda
+gpu_ids: [0]
+
+# ==============================================================================
+# Wandb Logging
+# ==============================================================================
+wandb:
+  project: fauna_mouse_markerless
+  entity: null
+  mode: online
+  tags:
+    - fauna
+    - mouse
+    - markerless
+    - multi-view
+    - a6000
+    - high-quality
+  notes: |
+    A6000 HIGH QUALITY: Markerless mouse 6-camera multi-view dataset
+    - GPU: A6000 48GB
+    - Grid res: 128 (high quality)
+    - Hidden size: 256 (full capacity)
+    - Batch size: 8
+    - Resolution: 256x256
+    - Duration: 200K iters (~5-8 hours)
+
+# ==============================================================================
+# Resume Training
+# ==============================================================================
+resume: null
+
+# ==============================================================================
+# Random Seed
+# ==============================================================================
+seed: 42
+
+# ==============================================================================
+# Output Directory
+# ==============================================================================
+output_dir: results/${exp_name}

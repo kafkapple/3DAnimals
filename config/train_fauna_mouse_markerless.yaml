@@ -1,0 +1,163 @@
+# Fauna Training Configuration - Markerless Mouse FULL TRAINING
+#
+# Full training configuration for markerless mouse 6-camera dataset
+# Expected duration: ~10-12 hours (RTX 3060 12GB, 200K iterations)
+#
+# ⚠️ IMPORTANT: Run debug mode first!
+#   conda run -n 3danimals python run.py --config-name train_fauna_mouse_markerless_debug
+#
+# After debug succeeds, run full training:
+#   nohup conda run -n 3danimals python run.py --config-name train_fauna_mouse_markerless > logs/fauna_mouse_markerless.log 2>&1 &
+
+defaults:
+  - model: fauna_mouse_markerless
+  - dataset: fauna_mouse_markerless
+  - _self_
+
+# ==============================================================================
+# Experiment Naming
+# ==============================================================================
+exp_name: fauna_mouse_markerless_full
+run_name: ${exp_name}_${now:%Y%m%d_%H%M%S}
+
+# Training mode
+run_train: true
+run_test: false
+
+# ==============================================================================
+# Training Duration
+# ==============================================================================
+num_iters: 200000  # Full training (10-12 hours on RTX 3060)
+                   # Mouse is small dataset, 200K should be sufficient
+
+# ==============================================================================
+# Checkpoint and Logging
+# ==============================================================================
+save_checkpoint_freq: 10000  # Save every 10K iters
+log_image_freq: 1000         # Log images every 1K iters
+eval_freq: 5000              # Evaluate every 5K iters
+
+# ==============================================================================
+# Dataset Paths
+# ==============================================================================
+dataset:
+  train_data_dir: /home/joon/dev/3DAnimals/data/fauna/Fauna_dataset
+  val_data_dir: /home/joon/dev/3DAnimals/data/fauna/Fauna_dataset
+  test_data_dir: null
+
+# ==============================================================================
+# Hardware Configuration
+# ==============================================================================
+device: cuda
+gpu_ids: [0]
+
+# ==============================================================================
+# Wandb Logging
+# ==============================================================================
+wandb:
+  project: fauna_mouse_markerless
+  entity: null
+  mode: online  # Online mode for full training
+  tags:
+    - fauna
+    - mouse
+    - markerless
+    - multi-view
+    - full-training
+  notes: |
+    FULL TRAINING: Markerless mouse 6-camera multi-view dataset
+    - Dataset: mouse_markerless_6view
+    - Cameras: 6 views
+    - Frames: ~100 per camera (600 total train frames)
+    - GPU: RTX 3060 12GB
+    - Model: Fauna with mouse-specific config
+    - Grid res: 64 (memory optimized)
+    - Hidden size: 128
+    - Spatial scale: 4.0 (mouse scale)
+    - Body bones: 6 (mouse skeleton)
+    - Duration: 200K iters (~10-12 hours)
+
+# ==============================================================================
+# Resume Training
+# ==============================================================================
+resume: null  # Set to checkpoint path to resume
+              # Example: results/fauna_mouse_markerless_full_20251119/checkpoint_100000.pth
+
+# ==============================================================================
+# Random Seed
+# ==============================================================================
+seed: 42
+
+# ==============================================================================
+# Output Directory
+# ==============================================================================
+output_dir: results/${exp_name}
+
+# ==============================================================================
+# Training Monitoring
+# ==============================================================================
+#
+# Monitor training progress:
+#   tail -f logs/fauna_mouse_markerless.log
+#   nvidia-smi -l 1  # GPU monitoring
+#   wandb online  # Open WandB dashboard
+#
+# Expected milestones:
+# - 0-10K: Initial shape learning (ellipsoid → mouse-like)
+# - 10K-20K: Pose estimation stabilizes
+# - 20K+: Articulation starts (legs begin to move)
+# - 60K+: Legs attach to body
+# - 100K-150K: Fine-tuning of shape and texture
+# - 150K+: Advanced articulation refinement
+#
+# Critical checkpoints to save:
+# - 20K: Before articulation
+# - 60K: Before leg attachment
+# - 100K: Mid-training baseline
+# - 200K: Final model
+#
+# GPU Memory Usage:
+# - Expected: 8-10GB / 12GB
+# - If OOM: Reduce grid_res (64 → 32) or batch_size (6 → 4)
+#
+# Training Time Estimates (RTX 3060):
+# - Per iteration: ~2-3 seconds
+# - 10K iters: ~6-8 hours
+# - 50K iters: ~30-40 hours
+# - 200K iters: ~120-150 hours (5-6 days)
+#
+# ==============================================================================
+
+# ==============================================================================
+# Stopping Criteria
+# ==============================================================================
+#
+# Consider stopping if:
+# - Validation loss plateaus for 50K+ iterations
+# - Visual quality satisfactory (check logged images)
+# - GPU time budget reached
+#
+# Minimum recommended:
+# - At least 100K iterations for reasonable quality
+# - 200K for publication-quality results
+#
+# ==============================================================================
+
+# ==============================================================================
+# Post-Training Steps
+# ==============================================================================
+#
+# After training completes:
+# 1. Evaluate on validation set:
+#    python run.py --config-name train_fauna_mouse_markerless mode=eval
+#
+# 2. Generate 3D meshes:
+#    python scripts/extract_mesh.py --checkpoint results/.../checkpoint_200000.pth
+#
+# 3. Visualize results:
+#    python scripts/visualize_results.py --checkpoint results/.../checkpoint_200000.pth
+#
+# 4. Compare with ground truth keypoints (if available):
+#    python scripts/evaluate_keypoints.py --checkpoint results/.../checkpoint_200000.pth
+#
+# ==============================================================================

@@ -1,0 +1,101 @@
+# Mouse-Only Training Configuration (Full Training)
+#
+# Purpose: Full training ONLY on mouse_dannce_6view dataset
+# Dataset: 50 frames (5 sequences × 10 frames) - Mouse only
+# Duration: ~2-3 hours
+# Use: Run AFTER debug mode validates successfully
+
+defaults:
+  - dataset: fauna_mouse_dannce
+  - model: fauna_mouse_dannce
+  - _self_
+
+# ==============================================================================
+# Experiment Naming
+# ==============================================================================
+exp_name: mouse_only_full
+run_name: ${exp_name}_${now:%Y%m%d_%H%M%S}
+
+# ==============================================================================
+# Training Duration (FULL TRAINING)
+# ==============================================================================
+num_iters: 50000  # Full training for mouse-only
+
+# ==============================================================================
+# Checkpoint and Logging
+# ==============================================================================
+save_checkpoint_freq: 10000  # Save every 10K iters
+log_image_freq: 1000         # Log every 1K iters
+eval_freq: -1                # Disable validation
+
+# ==============================================================================
+# Dataset Configuration (MOUSE ONLY!)
+# ==============================================================================
+dataset:
+  train_data_dir: /home/joon/dev/3DAnimals/data/fauna/Mouse_only_dataset
+  val_data_dir: null
+  test_data_dir: /home/joon/dev/3DAnimals/data/fauna/Mouse_only_dataset
+
+# ==============================================================================
+# Hardware Configuration
+# ==============================================================================
+device: cuda
+gpu_ids: [0]
+
+# ==============================================================================
+# Logging Configuration
+# ==============================================================================
+log_val: false
+
+# ==============================================================================
+# Wandb Logging
+# ==============================================================================
+wandb:
+  project: mouse_only_training
+  entity: null
+  mode: online  # Online mode for full training
+  tags:
+    - mouse_only
+    - mouse
+    - dannce
+    - full_training
+    - few_shot
+  notes: |
+    Full mouse-only training (50K iterations).
+    Dataset: 50 frames from mouse_dannce_6view only.
+    Expected duration: ~2-3 hours.
+
+# ==============================================================================
+# Resume Training
+# ==============================================================================
+resume: null  # Start from scratch or set to checkpoint path
+
+# ==============================================================================
+# Random Seed
+# ==============================================================================
+seed: 42
+
+# ==============================================================================
+# Output Directory
+# ==============================================================================
+output_dir: results/${exp_name}
+checkpoint_dir: results/${exp_name}
+
+# ==============================================================================
+# Training Configuration
+# ==============================================================================
+run_train: true
+run_test: false
+mixed_precision: null
+load_optim: true
+keep_num_checkpoint: 2
+
+# ==============================================================================
+# Expected Results
+# ==============================================================================
+# After 50K iterations:
+# - Mouse shape well-learned
+# - Texture details captured
+# - Articulation working
+# - Can generate high-quality mouse 3D reconstructions
+# ==============================================================================

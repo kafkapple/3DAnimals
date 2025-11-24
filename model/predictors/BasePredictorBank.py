@@ -18,6 +18,7 @@ class DMTetEmbConfig:
     embedder_freq: int = 8
     embed_concat_pts: bool = True
     init_sdf: Union[int, float, str] = None
+    pretrained_sdf: Union[str, None] = None  # Optional: path to pretrained SDF (e.g., MAMMAL mouse prior)
     jitter_grid: float = 0.
     symmetrize: bool = False
     grid_res_coarse_epoch_range: List[int] = None

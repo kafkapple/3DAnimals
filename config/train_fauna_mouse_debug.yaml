@@ -1,0 +1,218 @@
+# Fauna Mouse Debug Mode - Quick PoC Validation
+# Purpose: Validate config before 11-hour full training
+# Expected time: ~15-20 minutes (5K iterations)
+
+hydra:
+  run:
+    dir: .
+  output_subdir: results/fauna_mouse_debug
+
+defaults:
+  - base_fauna
+  - dataset: fauna
+  - model: fauna
+  - _self_
+
+# ========== Experiment Info ==========
+experiment:
+  name: "fauna_mouse_debug"
+  description: "Debug mode - Quick validation before full training"
+  mode: "debug"
+  seed: 42
+
+# ========== NO Pretrained Weights ==========
+pretrained:
+  checkpoint_path: null  # Start from scratch
+  freeze_encoder: false
+  freeze_base_predictor: false
+  freeze_texture: false
+  freeze_articulation: false
+
+# ========== Dataset ==========
+dataset:
+  data_type: fauna
+  train_data_dir: "/home/joon/dev/3DAnimals/data/fauna_mouse"
+  val_data_dir: "/home/joon/dev/3DAnimals/data/fauna_mouse"
+  test_data_dir: "/home/joon/dev/3DAnimals/data/fauna_mouse"
+
+  in_image_size: 256
+  out_image_size: 256
+
+  batch_size: 4
+  num_workers: 4
+
+  random_shuffle_samples_train: true
+  random_xflip_train: true
+  load_dino_feature: false
+  dino_feature_dim: 16
+  load_keypoint: false
+
+  background_mode: none
+
+# ========== Model ==========
+model:
+  name: Fauna
+  spatial_scale: 3  # CRITICAL FIX: 5→3 (mouse scale, ellipsoid radius 0.45 vs 0.75)
+
+  cfg_predictor_base:
+    cfg_shape:
+      grid_res: 64  # RTX 3060 12GB compatible
+      init_sdf: 'ellipsoid'  # Start from scratch
+      pretrained_sdf: null
+
+  cfg_predictor_instance:
+    cfg_articulation:
+      articulation_iter_range: [2000, inf]  # Debug: Enable earlier (20K → 2K)
+      num_body_bones: 8
+      body_bones_mode: z_minmax_y+
+      num_legs: 4
+      num_leg_bones: 3
+      max_arti_angle: 90
+      skinning_temperature: 0.05
+      static_root_bones: false
+      output_multiplier: 0.1
+      attach_legs_to_body_iter_range: [4000, inf]  # Debug: Earlier (60K → 4K)
+      legs_to_body_joint_indices: null
+      constrain_legs: true
+      enable_refine: false
+
+    enable_deform: false
+    cfg_deform:
+      deform_iter_range: [150000, inf]  # Won't activate in debug mode
+
+    cfg_texture:
+      texture_iter_range: [0, inf]
+      cout: 9
+      num_layers: 8
+      hidden_size: 256
+
+# ========== Optimizer ==========
+cfg_optim_base:
+  lr: 0.001
+  weight_decay: 0.001
+
+cfg_optim_instance:
+  lr: 0.001
+  weight_decay: 0.001
+
+cfg_optim_discriminator:
+  lr: 0.0005
+  weight_decay: 0.001
+
+lr_scheduler:
+  type: ExponentialLR
+  gamma: 0.99995
+
+# ========== Losses ==========
+cfg_loss:
+  # Reconstruction
+  mask_loss_weight: 100.0
+  mask_dt_loss_weight: 0.
+  mask_inv_dt_loss_weight: 1000.0
+  rgb_loss_weight: 1.0
+  dino_feat_im_loss_weight: 10.0
+
+  # SDF Regularization (Ultra-strong for stability)
+  sdf_bce_reg_loss_weight: 20.0
+  sdf_gradient_reg_loss_weight: 5.0
+  sdf_reg_decay_start_iter: 3000  # Debug: Keep strong for 3K iters
+
+  # Articulation
+  arti_reg_loss_iter_range: [2000, inf]  # Match articulation_iter_range
+  arti_reg_loss_weight: 0.5
+
+  # Deformation
+  deform_reg_loss_weight: 20.0
+
+  # Logit loss
+  logit_loss_weight: 1.0
+  logit_loss_dino_feat_im_loss_multiplier: 50.
+  logit_loss_mask_multiplier: 0.05
+  logit_loss_mask_inv_dt_multiplier: 0.05
+
+  # Progressive loss weights
+  logit_loss_dino_feat_im_loss_multiplier_dict: {0: 50., 3000: 500.}  # Debug adjusted
+  dino_feat_im_loss_weight_dict: {0: 10., 3000: 1.}  # Debug adjusted
+
+# ========== Training ==========
+run_train: true
+run_test: false
+num_iters: 5000  # DEBUG MODE: 5K iterations (~15-20 minutes)
+seed: 42
+gpu: 0
+
+# Checkpointing (more frequent for debug)
+save_checkpoint_freq: 1000  # Every 1K iters
+keep_num_checkpoint: 5  # Keep last 5
+checkpoint_dir: results/fauna_mouse_debug
+checkpoint_path: null
+load_optim: false
+reset_epoch: false
+resume: true
+
+# Logging (more frequent for debug)
+use_logger: true
+logger_type: tensorboard
+log_image_freq: 100  # Every 100 iters (vs 500 in full)
+log_loss_freq: 20  # Every 20 iters (vs 50 in full)
+log_train: true
+log_val: true
+save_train_result_freq: 2000  # Every 2K iters
+
+# ========== Rendering ==========
+cfg_render:
+  spatial_scale: 5
+  background_mode: none
+  render_flow: false
+  cam_pos_z_offset: 10
+  fov: 25
+  renderer_spp: 1
+
+# ========== Discriminator ==========
+cfg_mask_discriminator:
+  enable_iter: [4000, 5000]  # Debug: Enable briefly at end
+
+# ========== Augmentation ==========
+augmentation:
+  random_flip: true
+  random_scale_range: [0.9, 1.1]
+  random_rotate_deg: 10
+  color_jitter: 0.2
+  random_crop: false
+
+# ========== Monitoring ==========
+monitoring:
+  early_stopping:
+    enabled: false
+    patience: 50000
+    metric: "val_loss"
+    min_delta: 0.001
+
+  metrics:
+    - mask_iou
+    - rgb_psnr
+    - dino_similarity
+    - arti_reg_loss
+    - total_loss
+
+# ========== Debugging ==========
+debug:
+  visualize_every: 100  # More frequent
+  save_intermediate_shapes: true  # Enable for debug
+  verbose: true
+
+# ========== DEBUG MODE NOTES ==========
+# Expected timeline (5000 iters × 0.18s/iter = ~15-20 minutes):
+#   0-2K:   SDF field initialization & basic shape
+#   2K-4K:  Articulation enabled, basic skeleton
+#   4K-5K:  Discriminator enabled, final validation
+#
+# Success criteria:
+#   - No CUDA OOM errors
+#   - No mesh collapse
+#   - Training loop completes all 5K iters
+#   - Checkpoints saved successfully
+#   - GPU memory < 12GB
+#
+# After validation → Run full training:
+#   train_fauna_mouse_from_scratch.yaml (200K iters, ~11 hours)

@@ -23,6 +23,7 @@ class TrainerConfig:
     gpu: str = '0'
     num_iters: int = 1
     mixed_precision: str = None
+    disable_tf32: bool = False  # RTX 3060 compatibility
 
     checkpoint_dir: str = 'results'
     checkpoint_path: str = None
@@ -54,6 +55,7 @@ class Trainer:
     def __init__(self, cfg: TrainerConfig, model):
         self.cfg = misc.load_cfg(self, cfg, TrainerConfig)
         misc.setup_runtime(self.cfg)
+        misc.setup_tf32(self.cfg)  # RTX 3060 compatibility
 
         if self.cfg.remake_dataloader_iter > 0:
             self.train_loader, self.val_loader, self.test_loader = get_data_loaders(self.cfg.dataset, self.cfg.remake_dataloader_num)
@@ -141,7 +143,7 @@ class Trainer:
 
         with torch.no_grad():
             for iteration, batch in tqdm(enumerate(self.test_loader), total=len(self.test_loader)):
-                batch = validate_all_to_device(batch, device=self.accelerator.device)
+                batch = misc.validate_all_to_device(batch, device=self.accelerator.device)
                 m = self.model.forward(batch, epoch=epoch, total_iter=self.total_iter, save_results=True, save_dir=self.test_result_dir, is_training=False)
                 print(f"T{self.total_iter:06}")
 

@@ -1,0 +1,43 @@
+# Fauna Dataset Configuration for Mouse DANNCE (6-view multi-camera)
+#
+# Dataset: mouse_dannce_6view
+# Source: /home/joon/dev/data/mouse_dannce_6view
+# Structure: 5 sequences, 10 frames each (50 total frames)
+# Resolution: 256x256 (already processed)
+# Cameras: Multi-view synchronized
+
+# Dataset type
+data_type: fauna
+
+# Image resolution settings
+in_image_size: 256      # Input already 256x256
+out_image_size: 256     # Output 256x256
+
+# Training batch settings
+batch_size: 1           # Minimal batch size (CUDA compatibility)
+                        # Reduced from 2 to avoid CUBLAS errors
+num_workers: 2          # Data loading workers
+
+# Data directory paths (auto-filled by hydra)
+train_data_dir: null    # Auto: data/fauna/Fauna_dataset/large_scale/mouse_dannce_6view/train
+val_data_dir: null      # Auto: data/fauna/Fauna_dataset/large_scale/mouse_dannce_6view/val
+test_data_dir: null     # Auto: data/fauna/Fauna_dataset/large_scale/mouse_dannce_6view/test
+
+# Data augmentation
+random_shuffle_samples_train: false  # Keep temporal consistency
+random_xflip_train: false            # Mouse has bilateral symmetry, but keep original
+
+# Background settings
+background_mode: none   # Black background (masks are clean)
+
+# Optional features
+load_flow: false              # No optical flow
+load_dino_feature: false      # Will extract online during training
+load_dino_cluster: false
+dino_feature_dim: 16
+
+# Notes:
+# - Few-shot dataset: 50 frames total (5 sequences × 10 frames)
+# - Multi-view: Each sequence is from different camera view
+# - Small batch_size due to limited data
+# - No augmentation to preserve original multi-view geometry

@@ -1,0 +1,302 @@
+# Fauna Model Configuration Template for New Animals
+#
+# Instructions:
+# 1. Copy this file to: config/model/fauna_{animal_name}.yaml
+# 2. Replace {animal_name} with your animal name
+# 3. Adjust parameters based on animal size and complexity
+#
+# Animal Size Guide:
+# - Small (mouse, rat, squirrel):     spatial_scale: 4-5,  grid_res: 64-128
+# - Medium (cat, dog, rabbit):        spatial_scale: 6-7,  grid_res: 128-256
+# - Large (horse, cow, elephant):     spatial_scale: 7-10, grid_res: 256-512
+#
+# GPU Memory Guide:
+# - RTX 3060 12GB:  grid_res ≤ 128, hidden_size ≤ 128
+# - RTX 3090 24GB:  grid_res ≤ 256, hidden_size ≤ 256
+# - A100 40GB:      grid_res ≤ 512, hidden_size ≤ 512
+
+defaults:
+  - fauna  # Inherit base fauna configuration
+
+# Model name (replace with your animal name)
+name: FaunaNewAnimal  # Example: FaunaMouse, FaunaRabbit, etc.
+
+# ==============================================================================
+# Base Predictor Configuration
+# ==============================================================================
+# Learns the canonical 3D shape (SDF) and appearance
+
+cfg_predictor_base:
+
+  # ============================================================================
+  # Shape Configuration (SDF Learning)
+  # ============================================================================
+  cfg_shape:
+    # Grid resolution for SDF representation
+    grid_res: 128                           # High res (final): 64, 128, 256, 512
+    grid_res_coarse_iter_range: [0, 300000] # Use coarse grid until iteration 300K
+    grid_res_coarse: 64                     # Low res (initial): 32, 64, 128
+
+    # Spatial scale (affects scene size)
+    spatial_scale: 7.0  # Adjust based on animal size:
+                        # Small (4-5), Medium (6-7), Large (7-10)
+
+    # MLP architecture
+    num_layers: 5       # Number of MLP layers (3-7)
+    hidden_size: 256    # Hidden layer size (64, 128, 256, 512)
+                        # Smaller = faster but lower quality
+
+    # Positional encoding
+    embedder_freq: 8    # Frequency for positional encoding (6-10)
+    embed_concat_pts: true  # Concatenate raw points to embeddings
+
+    # Shape initialization
+    init_sdf: ellipsoid # Options: ellipsoid, sphere, null
+                        # ellipsoid: start from ellipsoid shape (recommended)
+                        # null: use pretrained SDF
+
+    pretrained_sdf: null  # Path to pretrained SDF checkpoint
+                          # Example: checkpoints/mouse_sdf_pretrained.pth
+                          # Leave null to train from scratch
+
+    jitter_grid: 0.05   # Grid jittering for regularization (0.01-0.1)
+    symmetrize: true    # Enforce bilateral symmetry (recommended for quadrupeds)
+
+  # ============================================================================
+  # DINO Feature Configuration
+  # ============================================================================
+  cfg_dino:
+    feature_dim: 16         # DINO feature dimension (8, 16, 32, 64)
+    num_layers: 5           # MLP layers for DINO feature prediction
+    hidden_size: 256        # Hidden size (64, 128, 256)
+    activation: sigmoid     # Activation function
+    embedder_freq: 8        # Positional encoding frequency
+    embed_concat_pts: true  # Concatenate raw points
+    symmetrize: false       # Usually false for texture features
+    minmax: [0., 1.]        # Feature value range
+
+  # ============================================================================
+  # Memory Bank Configuration
+  # ============================================================================
+  cfg_bank:
+    memory_bank_size: 60  # Number of samples in memory bank
+                          # Few-shot: 20-40
+                          # Large-scale: 60-100
+
+# ==============================================================================
+# Instance Predictor Configuration
+# ==============================================================================
+# Learns per-instance variations (pose, texture, articulation, lighting)
+
+cfg_predictor_instance:
+  spatial_scale: ${..cfg_render.spatial_scale}  # Inherit from render config
+
+  # ============================================================================
+  # Image Encoder
+  # ============================================================================
+  cfg_encoder:
+    cout: 256               # Output channels
+    which_vit: dino_vits8   # Vision Transformer type (dino_vits8, dino_vitb8)
+    pretrained: true        # Use pretrained weights
+    frozen: true            # Freeze encoder weights
+    final_layer_type: conv  # Final layer type
+
+  # ============================================================================
+  # Texture Configuration
+  # ============================================================================
+  cfg_texture:
+    texture_iter_range: [0, inf]  # When to enable texture (iteration range)
+                                  # [0, inf]: always enabled
+                                  # [10000, inf]: enable after 10K iters
+
+    cout: 9                 # Output channels (RGB + extras)
+    num_layers: 8           # MLP layers (6-10)
+    hidden_size: 256        # Hidden size (128, 256, 512)
+    activation: sigmoid     # Activation function
+    kd_minmax: [[0., 1.], [0., 1.], [0., 1.]]  # RGB channel ranges
+    embed_concat_pts: true  # Concatenate raw points
+    embedder_freq: 10       # Positional encoding frequency
+    symmetrize: true        # Enforce bilateral symmetry
+
+  # ============================================================================
+  # Pose Estimation
+  # ============================================================================
+  cfg_pose:
+    architecture: encoder_dino_patch_key  # Pose estimation architecture
+    cam_pos_z_offset: ${...cfg_render.cam_pos_z_offset}  # Camera Z offset
+    fov: ${...cfg_render.fov}                           # Field of view
+
+    # Translation constraints
+    max_trans_xy_range_ratio: 0.2   # Max XY translation (0.1-0.3)
+    max_trans_z_range_ratio: 0.5    # Max Z translation (0.3-0.7)
+
+    # Rotation representation
+    rot_rep: quadlookat     # Options: quadlookat, octlookat
+    rot_temp_scalar: 1      # Temperature for rotation sampling
+
+    # Training schedule
+    naive_probs_iter: 2000      # Use naive probs until this iteration
+    best_pose_start_iter: 6000  # Start using best pose from this iteration
+    lookat_zeroy: true          # Constrain look-at to Y=0 plane
+
+  # ============================================================================
+  # Deformation (Non-rigid shape variation)
+  # ============================================================================
+  enable_deform: true
+  cfg_deform:
+    deform_iter_range: [800000, inf]  # When to enable deformation
+                                      # Start late to learn rigid shape first
+                                      # Small animals: [400000, inf]
+                                      # Large animals: [800000, inf]
+
+    num_layers: 5       # MLP layers (3-7)
+    hidden_size: 256    # Hidden size (128, 256)
+    embed_concat_pts: true
+    embedder_freq: 10
+    symmetrize: true
+
+  # ============================================================================
+  # Articulation (Skeletal motion)
+  # ============================================================================
+  enable_articulation: true
+  cfg_articulation:
+    articulation_iter_range: [20000, inf]  # When to enable articulation
+                                           # Start early (20K-50K)
+
+    architecture: attention  # Options: attention, mlp
+                            # attention: better quality, slower
+                            # mlp: faster, lower quality
+
+    num_layers: 4       # MLP layers (3-6)
+    hidden_size: 256    # Hidden size (128, 256)
+    embedder_freq: 8    # Positional encoding frequency
+
+    # Bone feature extraction mode
+    bone_feature_mode: sample+global  # Options: global, sample, sample+global
+                                      # sample+global: recommended
+
+    # Skeleton structure (ADJUST BASED ON ANIMAL!)
+    num_body_bones: 8   # Number of body bones (spine)
+                        # Small: 4-6, Medium: 6-8, Large: 8-12
+
+    body_bones_mode: z_minmax_y+  # Body bone placement strategy
+                                  # z_minmax: along Z-axis
+                                  # z_minmax_y+: Z-axis with Y-offset (recommended)
+
+    num_legs: 4         # Number of legs
+                        # Quadrupeds: 4
+                        # Bipeds: 2
+
+    num_leg_bones: 3    # Bones per leg
+                        # Typical: 3 (thigh, shin, foot)
+
+    # Leg attachment
+    attach_legs_to_body_iter_range: [60000, inf]  # When to attach legs to body
+    legs_to_body_joint_indices: null  # Leg attachment points
+                                      # null: auto-detect
+                                      # [2, 7, 7, 2]: manual (front-L, front-R, back-R, back-L)
+
+    static_root_bones: false    # Fix root bones (usually false)
+    skinning_temperature: 0.05  # Skinning sharpness (0.01-0.1)
+                                # Smaller = sharper bone influence
+
+    max_arti_angle: 60          # Max articulation angle (degrees)
+    constrain_legs: false       # Use Fauna leg constraints
+    output_multiplier: 0.1      # Output scale multiplier
+    enable_refine: false        # Enable refinement stage
+
+  # ============================================================================
+  # Lighting
+  # ============================================================================
+  enable_lighting: true
+  cfg_light:
+    num_layers: 5       # MLP layers (3-7)
+    hidden_size: 256    # Hidden size (128, 256)
+    amb_diff_minmax: [[0.0, 1.0], [0.5, 1.0]]  # [Ambient, Diffuse] ranges
+
+  # ============================================================================
+  # Additional Settings
+  # ============================================================================
+  cfg_additional:
+    iter_leg_rotation_start: 300000  # When to enable leg rotation
+                                     # Small: 200K, Large: 300K
+
+# ==============================================================================
+# Rendering Configuration
+# ==============================================================================
+cfg_render:
+  spatial_scale: 7.0      # Scene scale (same as cfg_predictor_base.cfg_shape)
+  background_mode: none   # Background: none (black), white, checkerboard
+  render_flow: false      # Render optical flow
+  cam_pos_z_offset: 10    # Camera Z position offset
+  fov: 25                 # Field of view (degrees)
+  renderer_spp: 1         # Samples per pixel
+
+# ==============================================================================
+# Loss Configuration
+# ==============================================================================
+cfg_loss:
+  # Mask losses
+  mask_loss_weight: 100.0           # Mask reconstruction loss
+  mask_dt_loss_weight: 0.           # Distance transform loss
+  mask_inv_dt_loss_weight: 1000.0   # Inverse distance transform loss
+
+  # RGB loss
+  rgb_loss_weight: 1.0              # RGB reconstruction loss
+
+  # DINO feature loss
+  dino_feat_im_loss_weight: 10.0    # DINO feature loss weight
+
+  # SDF regularization
+  sdf_reg_decay_start_iter: 10000   # Start decaying SDF reg from this iter
+  sdf_bce_reg_loss_weight: 0.       # SDF BCE regularization
+  sdf_gradient_reg_loss_weight: 0.1 # SDF gradient regularization
+
+  # Viewpoint selection
+  logit_loss_weight: 1.0            # Viewpoint selection loss
+  logit_loss_dino_feat_im_loss_multiplier: 50.0  # DINO importance in viewpoint
+
+  # Articulation regularization
+  arti_reg_loss_iter_range: [60000, inf]  # When to apply arti regularization
+  arti_reg_loss_weight: 0.2               # Articulation smoothness
+
+  # Deformation regularization
+  deform_reg_loss_weight: 10.0      # Deformation smoothness
+
+  # Fauna-specific (large-scale training)
+  logit_loss_dino_feat_im_loss_multiplier_dict: {0: 50., 300000: 500.}
+  dino_feat_im_loss_weight_dict: {0: 10., 300000: 1.}
+  logit_loss_mask_multiplier: 0.05
+  logit_loss_mask_inv_dt_multiplier: 0.05
+
+# ==============================================================================
+# Notes and Recommendations
+# ==============================================================================
+#
+# 1. Start with default values and adjust based on results
+# 2. For small animals (mouse, rat):
+#    - Reduce spatial_scale (4-5)
+#    - Reduce grid_res (64-128)
+#    - Reduce hidden_size (64-128)
+#    - Reduce num_body_bones (4-6)
+#
+# 3. For large animals (elephant, giraffe):
+#    - Increase spatial_scale (8-10)
+#    - Increase grid_res (256-512) if GPU allows
+#    - Increase num_body_bones (10-12)
+#
+# 4. GPU Memory Management:
+#    - grid_res is the most memory-intensive parameter
+#    - hidden_size affects speed more than memory
+#    - Reduce batch_size if OOM
+#
+# 5. Training Schedule:
+#    - Start articulation early (20K)
+#    - Attach legs to body mid-training (60K)
+#    - Enable deformation late (400K-800K)
+#
+# 6. Symmetry:
+#    - Keep symmetrize=true for bilateral animals
+#    - Set to false for asymmetric features
+#
+# ==============================================================================

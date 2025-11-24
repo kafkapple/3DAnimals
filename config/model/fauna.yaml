@@ -44,6 +44,7 @@ cfg_predictor_base:
     embedder_freq: 8
     embed_concat_pts: true
     init_sdf: ellipsoid
+    pretrained_sdf: null  # Optional: path to pretrained SDF (e.g., MAMMAL mouse prior)
     jitter_grid: 0.05  # full grid within (-0.5, 0.5)
     symmetrize: true
 

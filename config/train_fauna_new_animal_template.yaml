@@ -1,0 +1,266 @@
+# Fauna Training Configuration Template for New Animals
+#
+# Instructions:
+# 1. Copy this file to: config/train_fauna_{animal_name}.yaml
+# 2. Replace {animal_name} with your animal name
+# 3. Adjust training parameters based on dataset size and goals
+#
+# Training Strategy Guide:
+# - Few-shot (10-50 images):   num_iters: 50K-100K
+# - Medium (50-200 images):    num_iters: 100K-200K
+# - Large-scale (200+ images): num_iters: 200K-500K
+#
+# Debug-First Principle:
+# ALWAYS run debug mode first (5K-10K iters, ~15-30 min) before full training!
+
+defaults:
+  - model: fauna_new_animal_template  # CHANGE THIS to your model config
+  - _self_
+
+# ==============================================================================
+# Experiment Naming
+# ==============================================================================
+exp_name: fauna_new_animal_from_scratch  # CHANGE THIS to your experiment name
+                                         # Examples:
+                                         # - fauna_mouse_from_scratch
+                                         # - fauna_rabbit_finetune
+                                         # - fauna_cat_pretrained
+
+run_name: ${exp_name}_${now:%Y%m%d_%H%M%S}  # Auto-generated run name with timestamp
+
+# ==============================================================================
+# Training Duration
+# ==============================================================================
+num_iters: 200000  # Total training iterations
+                   # Few-shot: 50K-100K
+                   # Medium: 100K-200K
+                   # Large: 200K-500K
+                   #
+                   # Time estimation (RTX 3060):
+                   # - 1K iters ≈ 3 min (grid_res=64)
+                   # - 10K iters ≈ 30 min
+                   # - 50K iters ≈ 2.5 hours
+                   # - 200K iters ≈ 10-11 hours
+
+# ==============================================================================
+# Checkpoint and Logging
+# ==============================================================================
+save_checkpoint_freq: 10000  # Save checkpoint every N iterations
+                             # Few-shot: 5K-10K
+                             # Large: 10K-20K
+
+log_image_freq: 1000         # Log images to WandB every N iterations
+                             # Debug: 100-500
+                             # Full training: 1000-2000
+
+eval_freq: 5000              # Evaluate on validation set every N iterations
+                             # Set to -1 to disable validation
+
+# ==============================================================================
+# Dataset Paths
+# ==============================================================================
+# IMPORTANT: Update these paths to your actual dataset location!
+
+dataset:
+  # Option 1: Few-shot dataset
+  train_data_dir: data/fauna/Fauna_dataset/few_shot_animal3d/NEW_ANIMAL
+  val_data_dir: null  # Optional: validation data
+  test_data_dir: null
+
+  # Option 2: Large-scale dataset
+  # train_data_dir: data/fauna/Fauna_dataset/large_scale/NEW_ANIMAL_comb_dinov2_new
+  # val_data_dir: data/fauna/Fauna_dataset/large_scale/NEW_ANIMAL_comb_dinov2_new
+  # test_data_dir: data/fauna/Fauna_dataset/large_scale/NEW_ANIMAL_comb_dinov2_new
+
+# ==============================================================================
+# Hardware Configuration
+# ==============================================================================
+device: cuda     # Device: cuda, cpu (ALWAYS use cuda!)
+gpu_ids: [0]     # GPU device IDs to use
+                 # Single GPU: [0]
+                 # Multi-GPU: [0, 1, 2, 3]
+
+# ==============================================================================
+# Wandb Logging
+# ==============================================================================
+wandb:
+  project: fauna_new_animal  # CHANGE THIS to your WandB project name
+                             # Examples: fauna_mouse, fauna_rabbit
+
+  entity: null               # WandB team/user name (null = personal account)
+  mode: online               # Options: online, offline, disabled
+                             # online: real-time logging
+                             # offline: save logs locally, sync later
+                             # disabled: no logging
+
+  tags:                      # Tags for experiment organization
+    - fauna
+    - new_animal
+    # - from_scratch
+    # - debug
+    # - pretrained
+
+  notes: |                   # Experiment notes (optional)
+    Training new animal from scratch.
+    Dataset: few-shot / large-scale
+    Config: fauna_new_animal_template
+
+# ==============================================================================
+# Resume Training
+# ==============================================================================
+resume: null  # Resume from checkpoint
+              # null: start from scratch
+              # path: resume from checkpoint
+              # Examples:
+              # - checkpoints/fauna_mouse_iter_100000.pth
+              # - results/fauna_rabbit_20251119/checkpoint_latest.pth
+
+# ==============================================================================
+# Random Seed
+# ==============================================================================
+seed: 42  # Random seed for reproducibility
+          # Set to null for random seed
+
+# ==============================================================================
+# Output Directory
+# ==============================================================================
+output_dir: results/${exp_name}  # Output directory for checkpoints and results
+                                 # Auto: results/fauna_{animal}_from_scratch/
+
+# ==============================================================================
+# Training Modes
+# ==============================================================================
+
+# Debug Mode (RECOMMENDED BEFORE FULL TRAINING!)
+# Run this first to verify config and data pipeline
+#
+# debug_mode:
+#   num_iters: 5000           # Short training (15-30 min)
+#   save_checkpoint_freq: 1000
+#   log_image_freq: 100
+#   wandb.tags: [debug]
+#
+# Command:
+#   python run.py --config-name train_fauna_new_animal_debug
+
+# Full Training Mode (DEFAULT)
+# Run after debug mode succeeds
+#
+# Command:
+#   nohup python run.py --config-name train_fauna_new_animal > train.log 2>&1 &
+
+# ==============================================================================
+# Training Strategy Recommendations
+# ==============================================================================
+#
+# 1. DEBUG-FIRST (MANDATORY):
+#    - Create debug config (copy this file → train_fauna_{animal}_debug.yaml)
+#    - Set num_iters: 5000, log_image_freq: 100
+#    - Run: python run.py --config-name train_fauna_{animal}_debug
+#    - Verify: data loading, model init, training loop, checkpointing
+#    - Time: 15-30 minutes
+#
+# 2. FULL TRAINING:
+#    - After debug succeeds, run full training
+#    - Use nohup for long training sessions
+#    - Monitor: tail -f train.log
+#    - Check: WandB dashboard for metrics
+#
+# 3. CHECKPOINTING:
+#    - Save frequently early on (every 5K for first 50K)
+#    - Save less frequently later (every 10K-20K)
+#    - Always keep last 3-5 checkpoints
+#
+# 4. VALIDATION:
+#    - If you have val set, set eval_freq: 5000
+#    - Monitor validation metrics for overfitting
+#    - Early stop if val loss plateaus
+#
+# 5. GPU MEMORY:
+#    - RTX 3060 12GB: grid_res ≤ 128, batch_size ≤ 6
+#    - If OOM: reduce grid_res or batch_size
+#    - Use mixed precision training (fp16) if available
+#
+# 6. TRAINING TIME ESTIMATION:
+#    RTX 3060 12GB (grid_res=64):
+#    - 5K iters ≈ 15-20 min
+#    - 50K iters ≈ 2.5 hours
+#    - 200K iters ≈ 10-11 hours
+#
+#    RTX 3090 24GB (grid_res=128):
+#    - 5K iters ≈ 20-30 min
+#    - 50K iters ≈ 3 hours
+#    - 200K iters ≈ 12-14 hours
+#
+# ==============================================================================
+
+# ==============================================================================
+# Common Training Scenarios
+# ==============================================================================
+
+# Scenario 1: Few-shot from scratch (10-50 images)
+# -----------------------------------------------
+# num_iters: 50000
+# save_checkpoint_freq: 5000
+# log_image_freq: 500
+# dataset.train_data_dir: data/fauna/.../few_shot_animal3d/NEW_ANIMAL
+#
+# Expected time: 2-3 hours (RTX 3060)
+
+# Scenario 2: Large-scale from scratch (200+ images)
+# ---------------------------------------------------
+# num_iters: 200000
+# save_checkpoint_freq: 10000
+# log_image_freq: 1000
+# dataset.train_data_dir: data/fauna/.../large_scale/NEW_ANIMAL_comb_dinov2_new
+#
+# Expected time: 10-12 hours (RTX 3060)
+
+# Scenario 3: Fine-tuning from pretrained (any size)
+# ---------------------------------------------------
+# num_iters: 50000
+# resume: checkpoints/fauna_base_pretrained.pth
+# save_checkpoint_freq: 5000
+#
+# Expected time: 2-3 hours (RTX 3060)
+
+# Scenario 4: Debug mode (ALWAYS RUN FIRST!)
+# -------------------------------------------
+# num_iters: 5000
+# save_checkpoint_freq: 1000
+# log_image_freq: 100
+# wandb.mode: offline  # or disabled
+#
+# Expected time: 15-30 min (RTX 3060)
+
+# ==============================================================================
+# Troubleshooting
+# ==============================================================================
+#
+# Problem: CUDA Out of Memory
+# Solution:
+#   - Reduce grid_res in model config (256 → 128 → 64)
+#   - Reduce batch_size in dataset config (6 → 4 → 2)
+#   - Reduce hidden_size in model config (256 → 128 → 64)
+#
+# Problem: Training too slow
+# Solution:
+#   - Check GPU utilization: nvidia-smi
+#   - Reduce num_workers if CPU bottleneck
+#   - Use smaller grid_res for faster iteration
+#
+# Problem: Loss not decreasing
+# Solution:
+#   - Check data quality (masks, images)
+#   - Verify dataset loading (run debug mode)
+#   - Try smaller learning rate
+#   - Check WandB for NaN values
+#
+# Problem: Artifacts in results
+# Solution:
+#   - Increase SDF regularization
+#   - Train longer (more iterations)
+#   - Check mask quality
+#   - Adjust spatial_scale in model config
+#
+# ==============================================================================

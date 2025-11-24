@@ -44,6 +44,35 @@ def setup_runtime(cfg):
     return device
 
 
+def setup_tf32(cfg):
+    """
+    Setup TF32 based on config
+
+    RTX 3060 compatibility:
+    - TF32 causes CUBLAS errors on some operations
+    - Must disable for stable training
+
+    Args:
+        cfg: Config object with optional disable_tf32 attribute
+    """
+    disable_tf32 = getattr(cfg, 'disable_tf32', False)
+
+    if disable_tf32:
+        torch.backends.cuda.matmul.allow_tf32 = False
+        torch.backends.cudnn.allow_tf32 = False
+        print("=" * 80)
+        print("TF32 DISABLED (RTX 3060 Compatibility Mode)")
+        print("=" * 80)
+        print(f"MatMul TF32: {torch.backends.cuda.matmul.allow_tf32}")
+        print(f"cuDNN TF32: {torch.backends.cudnn.allow_tf32}")
+        print()
+    else:
+        print("TF32 ENABLED (Default PyTorch behavior)")
+        print(f"MatMul TF32: {torch.backends.cuda.matmul.allow_tf32}")
+        print(f"cuDNN TF32: {torch.backends.cudnn.allow_tf32}")
+        print()
+
+
 def load_yaml(path):
     print(f"Loading configs from {path}")
     with open(path, 'r') as f:
