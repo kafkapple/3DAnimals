@@ -142,8 +142,9 @@ class FaunaDataset(Dataset):
         
         self.in_image_size = in_image_size
         self.out_image_size = out_image_size
-        self.image_transform = transforms.Compose([transforms.Resize(self.in_image_size, interpolation=InterpolationMode.BILINEAR), transforms.ToTensor()])
-        self.mask_transform = transforms.Compose([transforms.Resize(self.out_image_size, interpolation=InterpolationMode.NEAREST), transforms.ToTensor()])
+        # Force square resize: (size, size) instead of size to avoid aspect ratio issues
+        self.image_transform = transforms.Compose([transforms.Resize((self.in_image_size, self.in_image_size), interpolation=InterpolationMode.BILINEAR), transforms.ToTensor()])
+        self.mask_transform = transforms.Compose([transforms.Resize((self.out_image_size, self.out_image_size), interpolation=InterpolationMode.NEAREST), transforms.ToTensor()])
         self.load_dino_feature = load_dino_feature
         self.load_keypoint = load_keypoint
         if load_dino_feature:
