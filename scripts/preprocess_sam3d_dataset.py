@@ -50,6 +50,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
+import random
 
 import numpy as np
 from PIL import Image
@@ -76,6 +77,11 @@ class PreprocessConfig:
     animal_name: str = "mouse_sam3d"
     frame_id_digits: int = 7
     seq_prefix: str = "seq_"
+
+    # Split ratios (train:val:test)
+    split_ratio: Tuple[float, float, float] = (0.8, 0.1, 0.1)
+    shuffle_sequences: bool = True
+    random_seed: int = 42
 
     # Processing
     copy_files: bool = True
@@ -420,6 +426,38 @@ class SAM3DToFaunaPreprocessor:
 
         return stats
 
+    def split_sequences(self, sequences: List[Dict]) -> Dict[str, List[Dict]]:
+        """Split sequences into train/val/test sets."""
+        n_seqs = len(sequences)
+        train_ratio, val_ratio, test_ratio = self.config.split_ratio
+
+        # Shuffle if requested
+        seq_indices = list(range(n_seqs))
+        if self.config.shuffle_sequences:
+            random.seed(self.config.random_seed)
+            random.shuffle(seq_indices)
+
+        # Calculate split points
+        n_train = int(n_seqs * train_ratio)
+        n_val = int(n_seqs * val_ratio)
+
+        # Ensure at least 1 sequence per split if we have enough
+        if n_seqs >= 3:
+            n_train = max(1, n_train)
+            n_val = max(1, n_val)
+
+        train_indices = seq_indices[:n_train]
+        val_indices = seq_indices[n_train:n_train + n_val]
+        test_indices = seq_indices[n_train + n_val:]
+
+        splits = {
+            'train': [sequences[i] for i in train_indices],
+            'val': [sequences[i] for i in val_indices],
+            'test': [sequences[i] for i in test_indices]
+        }
+
+        return splits
+
     def process(self) -> Dict:
         """Process the entire dataset."""
         self.log("\n" + "=" * 80)
@@ -437,8 +475,10 @@ class SAM3DToFaunaPreprocessor:
         # Create output directory
         target_path = Path(self.config.target_dir)
         animal_dir = target_path / self.config.animal_name
-        train_dir = animal_dir / "train"
-        train_dir.mkdir(parents=True, exist_ok=True)
+
+        # Split sequences
+        splits = self.split_sequences(info['sequences'])
+        self.log(f"\nSplit: train={len(splits['train'])}, val={len(splits['val'])}, test={len(splits['test'])}")
 
         total_stats = {
             'processed': 0,
@@ -446,65 +486,82 @@ class SAM3DToFaunaPreprocessor:
             'box_generated': 0,
             'meta_generated': 0,
             'skipped': 0,
-            'errors': 0
+            'errors': 0,
+            'splits': {'train': 0, 'val': 0, 'test': 0}
         }
 
         rgb_regex = re.compile(self.config.rgb_pattern)
+        global_seq_idx = 0
 
-        # Process each sequence
-        for seq_idx, seq_info in enumerate(info['sequences']):
-            seq_name = f"{self.config.seq_prefix}{seq_idx:03d}"
-            dst_seq_dir = train_dir / seq_name
-            dst_seq_dir.mkdir(parents=True, exist_ok=True)
+        # Process each split
+        for split_name, split_sequences in splits.items():
+            if not split_sequences:
+                continue
 
-            src_seq_path = seq_info['path']
+            split_dir = animal_dir / split_name
+            split_dir.mkdir(parents=True, exist_ok=True)
 
-            self.log(f"\nProcessing {seq_info['name']} -> {seq_name}")
+            self.log(f"\n--- Processing {split_name} split ({len(split_sequences)} sequences) ---")
 
-            # Get RGB files
-            rgb_files = sorted([
-                f for f in src_seq_path.iterdir()
-                if f.is_file() and rgb_regex.match(f.name)
-            ])
+            for local_seq_idx, seq_info in enumerate(split_sequences):
+                seq_name = f"{self.config.seq_prefix}{local_seq_idx:03d}"
+                dst_seq_dir = split_dir / seq_name
+                dst_seq_dir.mkdir(parents=True, exist_ok=True)
 
-            for rgb_file in tqdm(rgb_files, desc=f"  {seq_name}", disable=not self.config.verbose):
-                # Extract frame ID
-                match = rgb_regex.match(rgb_file.name)
-                if not match:
-                    continue
+                src_seq_path = seq_info['path']
 
-                frame_id = int(match.group(1))
+                self.log(f"\n[{split_name}] {seq_info['name']} -> {seq_name}")
 
-                # Find corresponding mask
-                mask_file = src_seq_path / rgb_file.name.replace("_rgb.png", "_mask.png")
-                if not mask_file.exists():
-                    self.log(f"Mask not found: {mask_file}", "WARN")
-                    total_stats['errors'] += 1
-                    continue
+                # Get RGB files
+                rgb_files = sorted([
+                    f for f in src_seq_path.iterdir()
+                    if f.is_file() and rgb_regex.match(f.name)
+                ])
 
-                try:
-                    stats = self.process_frame(
-                        rgb_file, mask_file, dst_seq_dir,
-                        frame_id, seq_idx, image_size
-                    )
+                for rgb_file in tqdm(rgb_files, desc=f"  {seq_name}", disable=not self.config.verbose):
+                    # Extract frame ID
+                    match = rgb_regex.match(rgb_file.name)
+                    if not match:
+                        continue
 
-                    if stats['skipped']:
-                        total_stats['skipped'] += 1
-                    else:
-                        total_stats['processed'] += 1
-                        total_stats['copied'] += stats['copied']
-                        total_stats['box_generated'] += stats['box_generated']
-                        total_stats['meta_generated'] += stats['meta_generated']
+                    frame_id = int(match.group(1))
 
-                except Exception as e:
-                    self.log(f"Error processing {rgb_file}: {e}", "ERROR")
-                    total_stats['errors'] += 1
+                    # Find corresponding mask
+                    mask_file = src_seq_path / rgb_file.name.replace("_rgb.png", "_mask.png")
+                    if not mask_file.exists():
+                        self.log(f"Mask not found: {mask_file}", "WARN")
+                        total_stats['errors'] += 1
+                        continue
+
+                    try:
+                        stats = self.process_frame(
+                            rgb_file, mask_file, dst_seq_dir,
+                            frame_id, global_seq_idx, image_size
+                        )
+
+                        if stats['skipped']:
+                            total_stats['skipped'] += 1
+                        else:
+                            total_stats['processed'] += 1
+                            total_stats['copied'] += stats['copied']
+                            total_stats['box_generated'] += stats['box_generated']
+                            total_stats['meta_generated'] += stats['meta_generated']
+                            total_stats['splits'][split_name] += 1
+
+                    except Exception as e:
+                        self.log(f"Error processing {rgb_file}: {e}", "ERROR")
+                        total_stats['errors'] += 1
+
+                global_seq_idx += 1
 
         # Summary
         self.log("\n" + "=" * 80)
         self.log("Preprocessing Complete!")
         self.log("=" * 80)
         self.log(f"Processed:     {total_stats['processed']}")
+        self.log(f"  - train:     {total_stats['splits']['train']}")
+        self.log(f"  - val:       {total_stats['splits']['val']}")
+        self.log(f"  - test:      {total_stats['splits']['test']}")
         self.log(f"Files copied:  {total_stats['copied']}")
         self.log(f"Box generated: {total_stats['box_generated']}")
         self.log(f"Meta generated:{total_stats['meta_generated']}")
@@ -524,32 +581,37 @@ class SAM3DToFaunaPreprocessor:
         self.log("Validating Output")
         self.log("=" * 80)
 
-        train_dir = animal_dir / "train"
-        if not train_dir.exists():
-            self.log("Train directory not found", "ERROR")
-            return False
-
-        sequences = sorted([d for d in train_dir.iterdir() if d.is_dir()])
         all_valid = True
-        total_frames = 0
+        grand_total = 0
 
-        for seq in sequences:
-            rgb_count = len(list(seq.glob("*_rgb.png")))
-            mask_count = len(list(seq.glob("*_mask.png")))
-            box_count = len(list(seq.glob("*_box.txt")))
-            meta_count = len(list(seq.glob("*_metadata.json")))
+        for split_name in ['train', 'val', 'test']:
+            split_dir = animal_dir / split_name
+            if not split_dir.exists():
+                continue
 
-            is_valid = (rgb_count == mask_count == box_count == meta_count)
-            status = "OK" if is_valid else "MISMATCH"
+            self.log(f"\n[{split_name}]")
+            sequences = sorted([d for d in split_dir.iterdir() if d.is_dir()])
+            split_frames = 0
 
-            self.log(f"  {seq.name}: RGB={rgb_count}, Mask={mask_count}, Box={box_count}, Meta={meta_count} [{status}]")
+            for seq in sequences:
+                rgb_count = len(list(seq.glob("*_rgb.png")))
+                mask_count = len(list(seq.glob("*_mask.png")))
+                box_count = len(list(seq.glob("*_box.txt")))
+                meta_count = len(list(seq.glob("*_metadata.json")))
 
-            if not is_valid:
-                all_valid = False
-            total_frames += rgb_count
+                is_valid = (rgb_count == mask_count == box_count == meta_count)
+                status = "OK" if is_valid else "MISMATCH"
 
-        self.log(f"\nTotal sequences: {len(sequences)}")
-        self.log(f"Total frames: {total_frames}")
+                self.log(f"  {seq.name}: RGB={rgb_count}, Mask={mask_count}, Box={box_count}, Meta={meta_count} [{status}]")
+
+                if not is_valid:
+                    all_valid = False
+                split_frames += rgb_count
+
+            self.log(f"  Sequences: {len(sequences)}, Frames: {split_frames}")
+            grand_total += split_frames
+
+        self.log(f"\nTotal frames across all splits: {grand_total}")
 
         if all_valid:
             self.log("\nValidation PASSED", "INFO")
@@ -654,6 +716,10 @@ Examples:
     parser.add_argument("--source", "-s", type=str, help="Source directory (SAM3D output)")
     parser.add_argument("--target", "-t", type=str, help="Target directory (fauna/large_scale)")
     parser.add_argument("--animal", "-a", type=str, help="Animal/category name")
+    parser.add_argument("--split", type=str, default="0.8:0.1:0.1",
+                        help="Train:val:test split ratio (default: 0.8:0.1:0.1)")
+    parser.add_argument("--no-shuffle", action="store_true", help="Don't shuffle sequences before splitting")
+    parser.add_argument("--seed", type=int, default=42, help="Random seed for shuffling (default: 42)")
     parser.add_argument("--copy", action="store_true", help="Copy files (default: symlink)")
     parser.add_argument("--overwrite", action="store_true", help="Overwrite existing")
     parser.add_argument("--verbose", "-v", action="store_true", default=True, help="Verbose output")
@@ -688,10 +754,20 @@ Examples:
 
     # Command line mode
     elif args.source and args.target and args.animal:
+        # Parse split ratio
+        split_parts = args.split.split(':')
+        if len(split_parts) == 3:
+            split_ratio = tuple(float(x) for x in split_parts)
+        else:
+            split_ratio = (0.8, 0.1, 0.1)
+
         config = PreprocessConfig(
             source_dir=args.source,
             target_dir=args.target,
             animal_name=args.animal,
+            split_ratio=split_ratio,
+            shuffle_sequences=not args.no_shuffle,
+            random_seed=args.seed,
             copy_files=args.copy,
             overwrite=args.overwrite,
             verbose=args.verbose
