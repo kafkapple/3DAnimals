@@ -1,0 +1,100 @@
+# Mouse Ultimate V3: Pretrained + Ultra Relaxed
+# Lesson learned: Pretrained is CRITICAL for stability
+# Stage 0 (from scratch) failed at T000022 with sdf_grad=11.5
+#
+# Strategy:
+# - Keep pretrained (proven T000035 with reg=0.05)
+# - Ultra relax regularization (0.03)
+# - Best of both worlds
+
+defaults:
+- fauna
+name: Fauna
+
+cfg_predictor_base:
+  cfg_shape:
+    grid_res: 64
+    grid_res_coarse_iter_range: [0, 0]
+    grid_res_coarse: 64
+    spatial_scale: 4.0
+    num_layers: 5
+    hidden_size: 64
+    embedder_freq: 8
+    embed_concat_pts: true
+    init_sdf: ellipsoid
+    pretrained_sdf: ${oc.env:PWD}/checkpoints/mouse_sdf_pretrained.pth  # ✅ RESTORED!
+    jitter_grid: 0.05
+    symmetrize: false
+
+cfg_predictor_instance:
+  enable_articulation: true
+  cfg_articulation:
+    articulation_iter_range: [30000, inf]
+    num_body_bones: 4
+    num_legs: 4
+    num_leg_bones: 3
+    attach_legs_to_body_iter_range: [60000, inf]
+  enable_deform: false
+
+cfg_render:
+  spatial_scale: 4.0
+  cam_pos_z_offset: 10
+  fov: 25
+
+cfg_loss:
+  mask_loss_weight: 100.0
+  mask_dt_loss_weight: 0.
+  mask_inv_dt_loss_weight: 300.0
+  rgb_loss_weight: 1.0
+  dino_feat_im_loss_weight: 10.0
+  sdf_reg_decay_start_iter: 10000
+  sdf_bce_reg_loss_weight: 0.
+  sdf_gradient_reg_loss_weight: 0.03  # ✅ Ultra relaxed
+  logit_loss_weight: 1.0
+  logit_loss_dino_feat_im_loss_multiplier: 50.0
+  arti_reg_loss_iter_range: [60000, inf]
+  arti_reg_loss_weight: 0.2
+  deform_reg_loss_weight: 10.0
+  logit_loss_dino_feat_im_loss_multiplier_dict: {0: 50., 150000: 500.}
+  dino_feat_im_loss_weight_dict: {0: 10., 150000: 1.}
+  logit_loss_mask_multiplier: 0.05
+  logit_loss_mask_inv_dt_multiplier: 0.05
+
+cfg_optim_base:
+  lr: 0.001
+  weight_decay: 0.
+
+# ==============================================================================
+# Ultimate V3: Lessons Learned
+# ==============================================================================
+#
+# Stage 0 Results (From Scratch):
+# ❌ Failed at T000022
+# ❌ sdf_gradient = 11.5 (way too high!)
+# ❌ Pretrained removal caused massive instability
+#
+# Ultimate v2 Results (Pretrained + reg=0.05):
+# ✅ Reached T000035
+# ✅ sdf_gradient = 5.26 (much better)
+# ✅ Pretrained provides crucial initial stability
+#
+# V3 Strategy:
+# ├─ Pretrained: YES (critical for stability)
+# ├─ reg: 0.03 (more relaxed than v2's 0.05)
+# └─ Expected: T000050+ (combining best of both)
+#
+# Comparison:
+# ┌──────────────┬────────────┬─────┬──────────┬──────────┐
+# │ Config       │ Pretrained │ reg │ Failure  │ sdf_grad │
+# ├──────────────┼────────────┼─────┼──────────┼──────────┤
+# │ Ultimate v2  │ Yes        │ 0.05│ T000035  │ 5.26     │
+# │ Stage 0      │ No         │ 0.03│ T000022  │ 11.50 ❌ │
+# │ V3 (this)    │ Yes        │ 0.03│ T00050+? │ ~7.0?    │
+# └──────────────┴────────────┴─────┴──────────┴──────────┘
+#
+# Expected Results:
+# - Initial stability from pretrained (sdf_grad < 2.0 at T000010)
+# - Longer training from relaxed reg (0.03 vs 0.05)
+# - Target: T000050-80 (realistic)
+# - Best case: T000100+ (optimistic)
+# ==============================================================================

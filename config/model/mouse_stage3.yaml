@@ -1,0 +1,83 @@
+# Mouse Stage 3: No Regularization (Nuclear Option)
+# If Stage 2 (reg=0.01) still fails
+# Target: Maximum iterations possible (200+)
+# WARNING: Mesh quality will be poor!
+
+defaults:
+- fauna
+name: Fauna
+
+cfg_predictor_base:
+  cfg_shape:
+    grid_res: 64
+    grid_res_coarse_iter_range: [0, 0]
+    grid_res_coarse: 64
+    spatial_scale: 4.0
+    num_layers: 5
+    hidden_size: 64
+    embedder_freq: 8
+    embed_concat_pts: true
+    init_sdf: ellipsoid
+    pretrained_sdf: null
+    jitter_grid: 0.05
+    symmetrize: false
+
+cfg_predictor_instance:
+  enable_articulation: true
+  cfg_articulation:
+    articulation_iter_range: [50000, inf]  # Very late
+    num_body_bones: 4
+    num_legs: 4
+    num_leg_bones: 3
+    attach_legs_to_body_iter_range: [100000, inf]  # Extremely late
+  enable_deform: false
+
+cfg_render:
+  spatial_scale: 4.0
+  cam_pos_z_offset: 10
+  fov: 25
+
+cfg_loss:
+  mask_loss_weight: 100.0
+  mask_dt_loss_weight: 0.
+  mask_inv_dt_loss_weight: 0.0  # 🔥 REMOVED!
+  rgb_loss_weight: 1.0
+  dino_feat_im_loss_weight: 10.0
+  sdf_reg_decay_start_iter: 10000
+  sdf_bce_reg_loss_weight: 0.
+  sdf_gradient_reg_loss_weight: 0.0  # 🔥 REMOVED! (Nuclear option)
+  logit_loss_weight: 1.0
+  logit_loss_dino_feat_im_loss_multiplier: 50.0
+  arti_reg_loss_iter_range: [100000, inf]
+  arti_reg_loss_weight: 0.05  # Minimal
+  deform_reg_loss_weight: 10.0
+  logit_loss_dino_feat_im_loss_multiplier_dict: {0: 50., 150000: 500.}
+  dino_feat_im_loss_weight_dict: {0: 10., 150000: 1.}
+  logit_loss_mask_multiplier: 0.05
+  logit_loss_mask_inv_dt_multiplier: 0.05
+
+cfg_optim_base:
+  lr: 0.001
+  weight_decay: 0.
+
+# ==============================================================================
+# WARNING: Nuclear Option
+# ==============================================================================
+# This config removes ALL SDF regularization.
+#
+# Pros:
+# - Maximum training stability
+# - Will likely reach 200+ iterations
+# - Mesh collapse nearly impossible
+#
+# Cons:
+# - Mesh quality will be POOR
+# - SDF gradients will be wild (||∇SDF|| >> 1)
+# - Surface may be rough/noisy
+# - Not publication-quality
+#
+# Use only if:
+# - Stage 2 (reg=0.01) fails
+# - You need proof-of-concept
+# - Quality doesn't matter, just need shape
+# ==============================================================================

@@ -1,0 +1,66 @@
+# SAM3D to Fauna Dataset Preprocessing Configuration
+# Usage: python scripts/preprocess_sam3d_dataset.py --config config/preprocess/sam3d_to_fauna.yaml
+
+# Input settings
+input:
+  # Source directory containing SAM3D GUI output
+  source_dir: /home/joon/dev/sam3d_gui/outputs/fauna_datasets/mouse_batch_20251125_manual
+
+  # File naming pattern (regex)
+  # SAM3D GUI format: frame_XXXX_rgb.png, frame_XXXX_mask.png
+  rgb_pattern: "frame_(\\d+)_rgb\\.png"
+  mask_pattern: "frame_(\\d+)_mask\\.png"
+
+  # Folder pattern (regex for sequence folders)
+  folder_pattern: "video(\\d+)"
+
+# Output settings
+output:
+  # Target directory for Fauna-compatible dataset
+  target_dir: /home/joon/dev/3DAnimals/data/fauna/large_scale
+
+  # Animal/category name
+  animal_name: mouse_sam3d_manual
+
+  # Output file naming (7-digit zero-padded)
+  # Fauna format: 0000052_rgb.png, 0000052_mask.png, etc.
+  frame_id_digits: 7
+
+  # Sequence folder prefix
+  seq_prefix: "seq_"
+
+# Processing options
+processing:
+  # Copy files (true) or create symlinks (false)
+  copy_files: true
+
+  # Overwrite existing files
+  overwrite: false
+
+  # Generate box.txt from mask
+  generate_box: true
+
+  # Generate metadata.json
+  generate_metadata: true
+
+  # Add margin to bounding box (pixels)
+  bbox_margin: 5
+
+  # Skip frames with empty masks
+  skip_empty_masks: false
+
+  # Number of parallel workers
+  num_workers: 4
+
+# Validation settings
+validation:
+  # Validate output after processing
+  validate_output: true
+
+  # Check file integrity (read and verify)
+  check_integrity: false
+
+# Logging
+logging:
+  verbose: true
+  log_file: null  # Set path to save log

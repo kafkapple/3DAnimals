@@ -1,0 +1,52 @@
+# Mouse Debug Training - Stabilized Configuration
+# Fixes mesh collapse with stronger regularization
+
+defaults:
+  - dataset: mouse
+  - model: mouse
+  - _self_
+
+exp_name: mouse_debug_stable
+run_name: ${exp_name}_${now:%Y%m%d_%H%M%S}
+
+num_iters: 5000
+save_checkpoint_freq: 1000
+log_image_freq: 200
+
+device: cuda
+gpu_ids: [0]
+disable_tf32: true
+
+wandb:
+  project: mouse_fauna
+  mode: offline
+  tags:
+    - mouse
+    - debug
+    - stable
+
+output_dir: results/${exp_name}
+resume: null
+seed: 42
+
+run_train: true
+run_test: false
+keep_num_checkpoint: 5
+
+# STABILIZATION OVERRIDES
+cfg_optim_base:
+  lr: 0.00001  # Reduced from 0.001 → 0.00001 (1e-5)
+  weight_decay: 0.
+
+cfg_loss:
+  # Start regularization immediately
+  sdf_reg_decay_start_iter: 0  # Changed from 10000 → 0
+
+  # Stronger SDF regularization
+  sdf_bce_reg_loss_weight: 1.0  # Changed from 0.0 → 1.0
+  sdf_gradient_reg_loss_weight: 0.5  # Increased from 0.1 → 0.5
+
+  # Keep other losses
+  mask_loss_weight: 100.0
+  mask_inv_dt_loss_weight: 1000.0
+  rgb_loss_weight: 1.

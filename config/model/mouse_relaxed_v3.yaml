@@ -1,0 +1,121 @@
+# Mouse-Optimized Relaxed Configuration V3 (Aggressive)
+# Aggressive spatial scale reduction for maximum detail
+# EXPERIMENTAL: spatial_scale=3.0 (tightest fit for mouse)
+
+defaults:
+- fauna
+name: Fauna
+
+cfg_predictor_base:
+  cfg_shape:
+    grid_res: 32  # Keep for memory safety
+    grid_res_coarse_iter_range:
+    - 0
+    - 100000
+    grid_res_coarse: 32
+    spatial_scale: 3.0  # 🔥 AGGRESSIVE: 4.0 → 3.0 (maximum fineness)
+    num_layers: 5
+    hidden_size: 64  # Proven optimal
+    embedder_freq: 8
+    embed_concat_pts: true
+    init_sdf: ellipsoid
+    pretrained_sdf: ${oc.env:PWD}/checkpoints/mouse_sdf_pretrained.pth
+    jitter_grid: 0.05
+    symmetrize: false  # Remove symmetry
+
+cfg_predictor_instance:
+  enable_articulation: true
+  cfg_articulation:
+    articulation_iter_range:
+    - 20000  # Start later for stability
+    - inf
+    num_body_bones: 4  # Simplify skeleton
+    num_legs: 4
+    num_leg_bones: 3
+    attach_legs_to_body_iter_range:
+    - 40000  # Attach later
+    - inf
+  enable_deform: false
+
+cfg_render:
+  spatial_scale: 3.0  # Match cfg_shape.spatial_scale
+  cam_pos_z_offset: 10
+  fov: 25
+
+# Loss Configuration - Most Relaxed
+cfg_loss:
+  # Mask losses
+  mask_loss_weight: 100.0
+  mask_dt_loss_weight: 0.
+  mask_inv_dt_loss_weight: 500.0
+
+  # RGB loss
+  rgb_loss_weight: 1.0
+
+  # DINO feature loss
+  dino_feat_im_loss_weight: 10.0
+
+  # SDF regularization - MOST RELAXED!
+  sdf_reg_decay_start_iter: 10000
+  sdf_bce_reg_loss_weight: 0.
+  sdf_gradient_reg_loss_weight: 0.03  # 🔥 AGGRESSIVE: 0.05 → 0.03 (more relaxed!)
+
+  # Viewpoint selection
+  logit_loss_weight: 1.0
+  logit_loss_dino_feat_im_loss_multiplier: 50.0
+
+  # Articulation regularization
+  arti_reg_loss_iter_range: [60000, inf]
+  arti_reg_loss_weight: 0.2
+
+  # Deformation regularization
+  deform_reg_loss_weight: 10.0
+
+  # Fauna-specific
+  logit_loss_dino_feat_im_loss_multiplier_dict: {0: 50., 150000: 500.}
+  dino_feat_im_loss_weight_dict: {0: 10., 150000: 1.}
+  logit_loss_mask_multiplier: 0.05
+  logit_loss_mask_inv_dt_multiplier: 0.05
+
+# Optimizer Configuration
+cfg_optim_base:
+  lr: 0.001
+  weight_decay: 0.
+
+# ==============================================================================
+# V3: Aggressive Optimization (EXPERIMENTAL)
+# ==============================================================================
+#
+# Key Changes from V2:
+# - spatial_scale: 3.5 → 3.0 (16% smaller scene)
+# - sdf_gradient_reg_loss_weight: 0.05 → 0.03 (40% more relaxed)
+#
+# Spatial Scale Comparison:
+# ┌──────┬───────┬────────────┬────────────┐
+# │ Ver  │ Scale │ Grid (32)  │ vs DANNCE  │
+# ├──────┼───────┼────────────┼────────────┤
+# │ Base │ 4.0   │ 0.125 u/g  │ 79% coarser│
+# │ V2   │ 3.5   │ 0.109 u/g  │ 56% coarser│
+# │ V3   │ 3.0   │ 0.094 u/g  │ 34% coarser│ ✨
+# │ DANNCE│4.5/64│ 0.070 u/g  │ baseline   │
+# └──────┴───────┴────────────┴────────────┘
+#
+# Scene Size vs Mouse Size:
+# - Mouse with tail: ~15-18cm
+# - V3 scene: 30cm³ (tight but sufficient)
+# - Zoom factor: 15cm / 3.0 units = 5cm/unit (good detail)
+#
+# Expected Results:
+# - V1 (4.0, 0.05): ~50-70 iters
+# - V2 (3.5, 0.05): ~60-80 iters
+# - V3 (3.0, 0.03): ~80-100 iters (TARGET!)
+#
+# Risks:
+# - ⚠️ Pretrained SDF scale mismatch (4.0→3.0, 25% difference)
+# - ⚠️ Very relaxed Eikonal (0.03) → mesh quality may degrade
+# - ⚠️ Tight scene → tail may be clipped in extreme poses
+#
+# Recommendation:
+# - Try V2 first (safer)
+# - Use V3 if V2 succeeds and want maximum iterations
+# ==============================================================================

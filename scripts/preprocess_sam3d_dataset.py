@@ -1,400 +1,560 @@
 #!/usr/bin/env python3
 """
-SAM3D Dataset Preprocessing Pipeline
-=====================================
+SAM3D to Fauna Dataset Preprocessing Pipeline
+==============================================
 
-Purpose:
-  - Process SAM3D GUI output datasets for 3DAnimals training
-  - Generate missing box.txt and metadata.json files
-  - Validate dataset integrity
-  - Prepare for Fauna dataset format
+Converts SAM3D GUI output datasets to Fauna-compatible format for 3DAnimals training.
 
 Input Format (SAM3D GUI output):
   source/
-  └── {animal}/
-      └── train/
-          ├── seq_000/
-          │   ├── {frame_id}_rgb.png
-          │   └── {frame_id}_mask.png
-          └── seq_001/
-              └── ...
+  ├── dataset_metadata.json
+  ├── video000/
+  │   ├── frame_0000_rgb.png
+  │   ├── frame_0000_mask.png
+  │   └── ...
+  └── video001/
+      └── ...
 
 Output Format (Fauna compatible):
-  target/
-  └── {animal}/
-      └── train/
-          ├── seq_000/
-          │   ├── {frame_id}_rgb.png
-          │   ├── {frame_id}_mask.png
-          │   ├── {frame_id}_box.txt
-          │   └── {frame_id}_metadata.json
-          └── seq_001/
-              └── ...
+  target/large_scale/{animal_name}/
+  └── train/
+      ├── seq_000/
+      │   ├── 0000000_rgb.png
+      │   ├── 0000000_mask.png
+      │   ├── 0000000_box.txt
+      │   └── 0000000_metadata.json
+      └── seq_001/
+          └── ...
 
 Usage:
+  # With config file
+  python scripts/preprocess_sam3d_dataset.py --config config/preprocess/sam3d_to_fauna.yaml
+
+  # Command line arguments
+  python scripts/preprocess_sam3d_dataset.py \\
+    --source /path/to/sam3d_output \\
+    --target /path/to/fauna/large_scale \\
+    --animal mouse_sam3d
+
   # Interactive mode
   python scripts/preprocess_sam3d_dataset.py --interactive
-
-  # Manual mode
-  python scripts/preprocess_sam3d_dataset.py \\
-    --source /path/to/sam3d_gui/outputs/fauna_datasets/mouse \\
-    --animal mouse \\
-    --output data/fauna_processed
 """
 
 import os
 import sys
+import re
 import json
 import argparse
 import shutil
-import numpy as np
 from pathlib import Path
+from typing import Dict, List, Tuple, Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass, field
+
+import numpy as np
 from PIL import Image
-from typing import Dict, List, Tuple
 from tqdm import tqdm
 
+try:
+    import yaml
+    HAS_YAML = True
+except ImportError:
+    HAS_YAML = False
 
-class SAM3DDatasetPreprocessor:
-    def __init__(self, verbose: bool = True):
-        self.verbose = verbose
+
+@dataclass
+class PreprocessConfig:
+    """Configuration for SAM3D to Fauna preprocessing."""
+    # Input
+    source_dir: str = ""
+    rgb_pattern: str = r"frame_(\d+)_rgb\.png"
+    mask_pattern: str = r"frame_(\d+)_mask\.png"
+    folder_pattern: str = r"video(\d+)"
+
+    # Output
+    target_dir: str = ""
+    animal_name: str = "mouse_sam3d"
+    frame_id_digits: int = 7
+    seq_prefix: str = "seq_"
+
+    # Processing
+    copy_files: bool = True
+    overwrite: bool = False
+    generate_box: bool = True
+    generate_metadata: bool = True
+    bbox_margin: int = 5
+    skip_empty_masks: bool = False
+    num_workers: int = 4
+
+    # Validation
+    validate_output: bool = True
+    check_integrity: bool = False
+
+    # Logging
+    verbose: bool = True
+    log_file: Optional[str] = None
+
+    @classmethod
+    def from_yaml(cls, yaml_path: str) -> "PreprocessConfig":
+        """Load config from YAML file."""
+        if not HAS_YAML:
+            raise ImportError("PyYAML required. Install with: pip install pyyaml")
+
+        with open(yaml_path, 'r') as f:
+            data = yaml.safe_load(f)
+
+        config = cls()
+        # Flatten nested structure
+        if 'input' in data:
+            config.source_dir = data['input'].get('source_dir', config.source_dir)
+            config.rgb_pattern = data['input'].get('rgb_pattern', config.rgb_pattern)
+            config.mask_pattern = data['input'].get('mask_pattern', config.mask_pattern)
+            config.folder_pattern = data['input'].get('folder_pattern', config.folder_pattern)
+
+        if 'output' in data:
+            config.target_dir = data['output'].get('target_dir', config.target_dir)
+            config.animal_name = data['output'].get('animal_name', config.animal_name)
+            config.frame_id_digits = data['output'].get('frame_id_digits', config.frame_id_digits)
+            config.seq_prefix = data['output'].get('seq_prefix', config.seq_prefix)
+
+        if 'processing' in data:
+            config.copy_files = data['processing'].get('copy_files', config.copy_files)
+            config.overwrite = data['processing'].get('overwrite', config.overwrite)
+            config.generate_box = data['processing'].get('generate_box', config.generate_box)
+            config.generate_metadata = data['processing'].get('generate_metadata', config.generate_metadata)
+            config.bbox_margin = data['processing'].get('bbox_margin', config.bbox_margin)
+            config.skip_empty_masks = data['processing'].get('skip_empty_masks', config.skip_empty_masks)
+            config.num_workers = data['processing'].get('num_workers', config.num_workers)
+
+        if 'validation' in data:
+            config.validate_output = data['validation'].get('validate_output', config.validate_output)
+            config.check_integrity = data['validation'].get('check_integrity', config.check_integrity)
+
+        if 'logging' in data:
+            config.verbose = data['logging'].get('verbose', config.verbose)
+            config.log_file = data['logging'].get('log_file', config.log_file)
+
+        return config
+
+
+class SAM3DToFaunaPreprocessor:
+    """Preprocessor for converting SAM3D GUI output to Fauna format."""
+
+    def __init__(self, config: PreprocessConfig):
+        self.config = config
+        self.log_file = None
+        if config.log_file:
+            self.log_file = open(config.log_file, 'w')
+
+    def __del__(self):
+        if self.log_file:
+            self.log_file.close()
 
     def log(self, message: str, level: str = "INFO"):
-        if self.verbose:
-            colors = {"INFO": "\033[0;32m", "WARN": "\033[1;33m", "ERROR": "\033[0;31m"}
-            color = colors.get(level, "")
-            reset = "\033[0m"
-            print(f"{color}[{level}]{reset} {message}")
+        """Log message with color coding."""
+        if not self.config.verbose and level == "INFO":
+            return
 
-    def analyze_dataset(self, source_dir: Path) -> Dict:
-        """Analyze SAM3D dataset structure."""
+        colors = {
+            "INFO": "\033[0;32m",
+            "WARN": "\033[1;33m",
+            "ERROR": "\033[0;31m",
+            "DEBUG": "\033[0;36m"
+        }
+        color = colors.get(level, "")
+        reset = "\033[0m"
+        formatted = f"{color}[{level}]{reset} {message}"
+        print(formatted)
+
+        if self.log_file:
+            self.log_file.write(f"[{level}] {message}\n")
+
+    def analyze_source(self) -> Dict:
+        """Analyze source dataset structure."""
         self.log("=" * 80)
-        self.log("Analyzing Dataset Structure")
+        self.log("Analyzing Source Dataset")
         self.log("=" * 80)
+
+        source_path = Path(self.config.source_dir)
+        if not source_path.exists():
+            self.log(f"Source not found: {source_path}", "ERROR")
+            return {}
 
         info = {
             'sequences': [],
             'total_frames': 0,
-            'has_rgb': True,
-            'has_mask': True,
-            'has_box': False,
-            'has_metadata': False,
-            'missing_files': []
+            'image_size': None,
+            'has_metadata': False
         }
 
-        train_dir = source_dir / "train"
-        if not train_dir.exists():
-            self.log(f"Train directory not found: {train_dir}", "ERROR")
-            return info
+        # Check for dataset_metadata.json
+        metadata_file = source_path / "dataset_metadata.json"
+        if metadata_file.exists():
+            info['has_metadata'] = True
+            with open(metadata_file, 'r') as f:
+                info['dataset_metadata'] = json.load(f)
 
-        sequences = sorted([d for d in train_dir.iterdir() if d.is_dir()])
+        # Find sequence folders
+        folder_regex = re.compile(self.config.folder_pattern)
+        folders = sorted([
+            d for d in source_path.iterdir()
+            if d.is_dir() and folder_regex.match(d.name)
+        ])
 
-        for seq in sequences:
-            rgb_files = sorted(seq.glob("*_rgb.png"))
-            mask_files = sorted(seq.glob("*_mask.png"))
-            box_files = sorted(seq.glob("*_box.txt"))
-            meta_files = sorted(seq.glob("*_metadata.json"))
+        self.log(f"\nSource: {source_path}")
+        self.log(f"Found {len(folders)} sequence folders")
+
+        rgb_regex = re.compile(self.config.rgb_pattern)
+        mask_regex = re.compile(self.config.mask_pattern)
+
+        for folder in folders:
+            # Find RGB files
+            rgb_files = sorted([
+                f for f in folder.iterdir()
+                if f.is_file() and rgb_regex.match(f.name)
+            ])
+
+            # Find mask files
+            mask_files = sorted([
+                f for f in folder.iterdir()
+                if f.is_file() and mask_regex.match(f.name)
+            ])
+
+            # Extract frame IDs
+            frame_ids = []
+            for f in rgb_files:
+                match = rgb_regex.match(f.name)
+                if match:
+                    frame_ids.append(int(match.group(1)))
+
+            # Get image size from first RGB
+            if rgb_files and info['image_size'] is None:
+                try:
+                    img = Image.open(rgb_files[0])
+                    info['image_size'] = img.size
+                except Exception as e:
+                    self.log(f"Error reading image: {e}", "WARN")
 
             seq_info = {
-                'name': seq.name,
-                'path': seq,
+                'name': folder.name,
+                'path': folder,
                 'rgb_count': len(rgb_files),
                 'mask_count': len(mask_files),
-                'box_count': len(box_files),
-                'meta_count': len(meta_files),
-                'frame_ids': sorted([f.stem.replace("_rgb", "") for f in rgb_files])
+                'frame_ids': frame_ids
             }
-
             info['sequences'].append(seq_info)
             info['total_frames'] += len(rgb_files)
 
-            if len(box_files) == 0:
-                info['has_box'] = False
-            if len(meta_files) == 0:
-                info['has_metadata'] = False
-
-            # Check RGB/Mask pairs
-            rgb_ids = set([f.stem.replace("_rgb", "") for f in rgb_files])
-            mask_ids = set([f.stem.replace("_mask", "") for f in mask_files])
-            missing = rgb_ids - mask_ids
-            if missing:
-                info['missing_files'].extend([f"{seq.name}/{fid}_mask.png" for fid in missing])
-
         # Print summary
-        self.log(f"\n📁 Source: {source_dir}")
-        self.log(f"📊 Sequences: {len(sequences)}")
-        self.log(f"🖼️  Total frames: {info['total_frames']}\n")
+        self.log(f"\nTotal frames: {info['total_frames']}")
+        if info['image_size']:
+            self.log(f"Image size: {info['image_size'][0]} x {info['image_size'][1]}")
 
-        for seq_info in info['sequences']:
-            self.log(f"  {seq_info['name']}:")
-            self.log(f"    RGB:      {seq_info['rgb_count']} {'✓' if seq_info['rgb_count'] > 0 else '✗'}")
-            self.log(f"    Mask:     {seq_info['mask_count']} {'✓' if seq_info['mask_count'] > 0 else '✗'}")
-            self.log(f"    Box:      {seq_info['box_count']} {'✓' if seq_info['box_count'] > 0 else '✗'}")
-            self.log(f"    Metadata: {seq_info['meta_count']} {'✓' if seq_info['meta_count'] > 0 else '✗'}")
+        for seq in info['sequences'][:5]:  # Show first 5
+            self.log(f"  {seq['name']}: {seq['rgb_count']} RGB, {seq['mask_count']} Mask")
+        if len(info['sequences']) > 5:
+            self.log(f"  ... and {len(info['sequences']) - 5} more sequences")
 
         return info
 
-    def extract_bbox_from_mask(self, mask_path: Path) -> Tuple[int, int, int, int]:
-        """Extract bounding box from binary mask.
+    def extract_bbox_from_mask(self, mask_path: Path) -> Tuple[int, int, int, int, bool]:
+        """
+        Extract bounding box from binary mask.
 
         Returns:
-            (x0, y0, width, height)
+            (x0, y0, width, height, is_valid)
         """
         try:
             mask = np.array(Image.open(mask_path).convert('L'))
+            h, w = mask.shape
 
             # Find non-zero pixels
             rows = np.any(mask > 0, axis=1)
             cols = np.any(mask > 0, axis=0)
 
             if not rows.any() or not cols.any():
-                # Empty mask, return image center box
-                h, w = mask.shape
-                return (w//4, h//4, w//2, h//2)
+                # Empty mask
+                return (w // 4, h // 4, w // 2, h // 2, False)
 
             y_min, y_max = np.where(rows)[0][[0, -1]]
             x_min, x_max = np.where(cols)[0][[0, -1]]
 
-            # Add small margin
-            margin = 5
-            h, w = mask.shape
+            # Add margin
+            margin = self.config.bbox_margin
             x0 = max(0, x_min - margin)
             y0 = max(0, y_min - margin)
-            x1 = min(w, x_max + margin)
-            y1 = min(h, y_max + margin)
+            x1 = min(w, x_max + margin + 1)
+            y1 = min(h, y_max + margin + 1)
 
-            width = x1 - x0
-            height = y1 - y0
-
-            return (x0, y0, width, height)
+            return (x0, y0, x1 - x0, y1 - y0, True)
 
         except Exception as e:
             self.log(f"Error extracting bbox from {mask_path}: {e}", "ERROR")
-            return (0, 0, 256, 256)  # Default
+            return (0, 0, 256, 256, False)
 
-    def generate_box_txt(self, mask_path: Path, output_path: Path, frame_id: str, image_size: Tuple[int, int] = (256, 256)):
-        """Generate box.txt file from mask.
+    def generate_box_txt(
+        self,
+        mask_path: Path,
+        output_path: Path,
+        frame_id: int,
+        image_size: Tuple[int, int]
+    ) -> bool:
+        """
+        Generate box.txt file from mask.
 
         Format: frame_id crop_x0 crop_y0 crop_w crop_h full_w full_h sharpness label
         """
-        x0, y0, w, h = self.extract_bbox_from_mask(mask_path)
+        x0, y0, w, h, is_valid = self.extract_bbox_from_mask(mask_path)
         full_w, full_h = image_size
-        sharpness = 1.0  # Default sharpness
-        label = 0  # Default label
+        sharpness = 1.0
+        label = 0
 
         box_data = f"{frame_id} {x0} {y0} {w} {h} {full_w} {full_h} {sharpness} {label}"
 
         with open(output_path, 'w') as f:
             f.write(box_data)
 
-    def generate_metadata_json(self, box_path: Path, output_path: Path, frame_id: str):
-        """Generate Fauna-compatible metadata.json from box.txt.
+        return is_valid
 
-        Reads box.txt to get crop box and image dimensions, then generates
-        metadata in Fauna dataset format.
-        """
-        # Read box.txt to get all necessary information
+    def generate_metadata_json(
+        self,
+        box_path: Path,
+        output_path: Path,
+        frame_id: int
+    ):
+        """Generate Fauna-compatible metadata.json from box.txt."""
         with open(box_path, 'r') as f:
-            line = f.read().strip()
-            parts = line.split()
+            parts = f.read().strip().split()
 
-            if len(parts) != 9:
-                raise ValueError(f"Invalid box.txt format: {box_path}")
+        if len(parts) != 9:
+            raise ValueError(f"Invalid box.txt format: {box_path}")
 
-            frame_id_str, x0, y0, w, h, full_w, full_h, sharpness, label = parts
-
-        # Convert to proper types
-        x0, y0 = int(x0), int(y0)
-        w, h = int(w), int(h)
+        _, x0, y0, w, h, full_w, full_h, sharpness, label = parts
+        x0, y0, w, h = int(x0), int(y0), int(w), int(h)
         full_w, full_h = int(full_w), int(full_h)
-        sharpness = float(sharpness)
-        label = int(label)
 
-        # Create Fauna-format metadata
         metadata = {
-            "video_frame_id": int(frame_id),
+            "video_frame_id": frame_id,
             "crop_box_xyxy": [x0, y0, x0 + w, y0 + h],
             "video_frame_width": full_w,
             "video_frame_height": full_h,
-            "sharpness": sharpness,
             "crop_height": h,
-            "crop_width": w,
-            "label": label
+            "crop_width": w
         }
 
         with open(output_path, 'w') as f:
-            json.dump(metadata, f, indent=2)
+            json.dump(metadata, f, indent=4)
 
-    def process_dataset(
+    def process_frame(
         self,
-        source_dir: Path,
-        output_dir: Path,
-        animal_name: str,
-        copy_files: bool = True,
-        overwrite: bool = False
+        src_rgb: Path,
+        src_mask: Path,
+        dst_dir: Path,
+        src_frame_id: int,
+        seq_idx: int,
+        image_size: Tuple[int, int]
     ) -> Dict:
-        """Process complete dataset and generate missing files."""
-
-        self.log("\n" + "=" * 80)
-        self.log("Processing Dataset")
-        self.log("=" * 80)
-
-        # Analyze first
-        info = self.analyze_dataset(source_dir)
-
-        if info['total_frames'] == 0:
-            self.log("No frames found to process", "ERROR")
-            return {}
-
-        # Create output structure
-        output_animal_dir = output_dir / animal_name
-        output_train_dir = output_animal_dir / "train"
-        output_train_dir.mkdir(parents=True, exist_ok=True)
-
+        """Process a single frame."""
         stats = {
-            'processed_frames': 0,
-            'generated_boxes': 0,
-            'generated_metadata': 0,
-            'copied_files': 0,
-            'skipped_frames': 0
+            'copied': 0,
+            'box_generated': 0,
+            'meta_generated': 0,
+            'skipped': False
         }
 
-        # Process each sequence
-        for seq_info in info['sequences']:
-            seq_name = seq_info['name']
-            source_seq = seq_info['path']
-            target_seq = output_train_dir / seq_name
-            target_seq.mkdir(parents=True, exist_ok=True)
+        # Calculate global frame ID (sequence_idx * 1000 + frame_idx)
+        global_frame_id = seq_idx * 10000 + src_frame_id
 
-            self.log(f"\nProcessing {seq_name}...")
+        # Format output frame ID
+        frame_id_str = str(global_frame_id).zfill(self.config.frame_id_digits)
 
-            frame_ids = seq_info['frame_ids']
+        # Output paths
+        dst_rgb = dst_dir / f"{frame_id_str}_rgb.png"
+        dst_mask = dst_dir / f"{frame_id_str}_mask.png"
+        dst_box = dst_dir / f"{frame_id_str}_box.txt"
+        dst_meta = dst_dir / f"{frame_id_str}_metadata.json"
 
-            for frame_id in tqdm(frame_ids, desc=f"  {seq_name}", disable=not self.verbose):
-                # File paths
-                source_rgb = source_seq / f"{frame_id}_rgb.png"
-                source_mask = source_seq / f"{frame_id}_mask.png"
-                source_box = source_seq / f"{frame_id}_box.txt"
-                source_meta = source_seq / f"{frame_id}_metadata.json"
+        # Skip if exists and not overwriting
+        if not self.config.overwrite and all([
+            dst_rgb.exists(), dst_mask.exists(),
+            dst_box.exists(), dst_meta.exists()
+        ]):
+            stats['skipped'] = True
+            return stats
 
-                target_rgb = target_seq / f"{frame_id}_rgb.png"
-                target_mask = target_seq / f"{frame_id}_mask.png"
-                target_box = target_seq / f"{frame_id}_box.txt"
-                target_meta = target_seq / f"{frame_id}_metadata.json"
+        # Copy/symlink RGB
+        if self.config.copy_files:
+            shutil.copy2(src_rgb, dst_rgb)
+        else:
+            if dst_rgb.exists():
+                dst_rgb.unlink()
+            dst_rgb.symlink_to(src_rgb.resolve())
+        stats['copied'] += 1
 
-                # Skip if target exists and not overwriting
-                if not overwrite and all([
-                    target_rgb.exists(),
-                    target_mask.exists(),
-                    target_box.exists(),
-                    target_meta.exists()
-                ]):
-                    stats['skipped_frames'] += 1
-                    continue
+        # Copy/symlink Mask
+        if self.config.copy_files:
+            shutil.copy2(src_mask, dst_mask)
+        else:
+            if dst_mask.exists():
+                dst_mask.unlink()
+            dst_mask.symlink_to(src_mask.resolve())
+        stats['copied'] += 1
 
-                # Copy or symlink RGB and Mask
-                if copy_files:
-                    if source_rgb.exists():
-                        shutil.copy2(source_rgb, target_rgb)
-                        stats['copied_files'] += 1
-                    if source_mask.exists():
-                        shutil.copy2(source_mask, target_mask)
-                        stats['copied_files'] += 1
-                else:
-                    if source_rgb.exists() and not target_rgb.exists():
-                        target_rgb.symlink_to(source_rgb.resolve())
-                    if source_mask.exists() and not target_mask.exists():
-                        target_mask.symlink_to(source_mask.resolve())
+        # Generate box.txt
+        if self.config.generate_box:
+            is_valid = self.generate_box_txt(src_mask, dst_box, global_frame_id, image_size)
+            stats['box_generated'] += 1
 
-                # Get image size from RGB
-                if source_rgb.exists():
-                    img = Image.open(source_rgb)
-                    image_size = img.size
-                else:
-                    image_size = (256, 256)
+            if not is_valid and self.config.skip_empty_masks:
+                # Clean up
+                dst_rgb.unlink()
+                dst_mask.unlink()
+                dst_box.unlink()
+                stats['skipped'] = True
+                return stats
 
-                # Generate box.txt if missing
-                if not source_box.exists() and source_mask.exists():
-                    self.generate_box_txt(source_mask, target_box, frame_id, image_size)
-                    stats['generated_boxes'] += 1
-                elif source_box.exists():
-                    if copy_files:
-                        shutil.copy2(source_box, target_box)
-                    else:
-                        if not target_box.exists():
-                            target_box.symlink_to(source_box.resolve())
-
-                # Generate metadata.json if missing
-                # Note: metadata.json must be generated after box.txt exists
-                if not source_meta.exists():
-                    # Generate from box.txt (must exist at this point)
-                    if target_box.exists():
-                        self.generate_metadata_json(target_box, target_meta, frame_id)
-                        stats['generated_metadata'] += 1
-                    else:
-                        self.log(f"Warning: Cannot generate metadata without box.txt for {frame_id}", "WARNING")
-                elif source_meta.exists():
-                    if copy_files:
-                        shutil.copy2(source_meta, target_meta)
-                    else:
-                        if not target_meta.exists():
-                            target_meta.symlink_to(source_meta.resolve())
-
-                stats['processed_frames'] += 1
-
-        # Summary
-        self.log("\n" + "=" * 80)
-        self.log("Processing Complete!")
-        self.log("=" * 80)
-        self.log(f"Processed frames:    {stats['processed_frames']}")
-        self.log(f"Generated boxes:     {stats['generated_boxes']}")
-        self.log(f"Generated metadata:  {stats['generated_metadata']}")
-        self.log(f"Copied files:        {stats['copied_files']}")
-        self.log(f"Skipped frames:      {stats['skipped_frames']}")
-
-        self.log(f"\n📁 Output directory: {output_animal_dir}")
+        # Generate metadata.json
+        if self.config.generate_metadata and dst_box.exists():
+            self.generate_metadata_json(dst_box, dst_meta, global_frame_id)
+            stats['meta_generated'] += 1
 
         return stats
 
-    def validate_output(self, output_dir: Path, animal_name: str) -> bool:
+    def process(self) -> Dict:
+        """Process the entire dataset."""
+        self.log("\n" + "=" * 80)
+        self.log("Starting Preprocessing")
+        self.log("=" * 80)
+
+        # Analyze source
+        info = self.analyze_source()
+        if not info or info['total_frames'] == 0:
+            self.log("No frames found to process", "ERROR")
+            return {}
+
+        image_size = info.get('image_size', (256, 256))
+
+        # Create output directory
+        target_path = Path(self.config.target_dir)
+        animal_dir = target_path / self.config.animal_name
+        train_dir = animal_dir / "train"
+        train_dir.mkdir(parents=True, exist_ok=True)
+
+        total_stats = {
+            'processed': 0,
+            'copied': 0,
+            'box_generated': 0,
+            'meta_generated': 0,
+            'skipped': 0,
+            'errors': 0
+        }
+
+        rgb_regex = re.compile(self.config.rgb_pattern)
+
+        # Process each sequence
+        for seq_idx, seq_info in enumerate(info['sequences']):
+            seq_name = f"{self.config.seq_prefix}{seq_idx:03d}"
+            dst_seq_dir = train_dir / seq_name
+            dst_seq_dir.mkdir(parents=True, exist_ok=True)
+
+            src_seq_path = seq_info['path']
+
+            self.log(f"\nProcessing {seq_info['name']} -> {seq_name}")
+
+            # Get RGB files
+            rgb_files = sorted([
+                f for f in src_seq_path.iterdir()
+                if f.is_file() and rgb_regex.match(f.name)
+            ])
+
+            for rgb_file in tqdm(rgb_files, desc=f"  {seq_name}", disable=not self.config.verbose):
+                # Extract frame ID
+                match = rgb_regex.match(rgb_file.name)
+                if not match:
+                    continue
+
+                frame_id = int(match.group(1))
+
+                # Find corresponding mask
+                mask_file = src_seq_path / rgb_file.name.replace("_rgb.png", "_mask.png")
+                if not mask_file.exists():
+                    self.log(f"Mask not found: {mask_file}", "WARN")
+                    total_stats['errors'] += 1
+                    continue
+
+                try:
+                    stats = self.process_frame(
+                        rgb_file, mask_file, dst_seq_dir,
+                        frame_id, seq_idx, image_size
+                    )
+
+                    if stats['skipped']:
+                        total_stats['skipped'] += 1
+                    else:
+                        total_stats['processed'] += 1
+                        total_stats['copied'] += stats['copied']
+                        total_stats['box_generated'] += stats['box_generated']
+                        total_stats['meta_generated'] += stats['meta_generated']
+
+                except Exception as e:
+                    self.log(f"Error processing {rgb_file}: {e}", "ERROR")
+                    total_stats['errors'] += 1
+
+        # Summary
+        self.log("\n" + "=" * 80)
+        self.log("Preprocessing Complete!")
+        self.log("=" * 80)
+        self.log(f"Processed:     {total_stats['processed']}")
+        self.log(f"Files copied:  {total_stats['copied']}")
+        self.log(f"Box generated: {total_stats['box_generated']}")
+        self.log(f"Meta generated:{total_stats['meta_generated']}")
+        self.log(f"Skipped:       {total_stats['skipped']}")
+        self.log(f"Errors:        {total_stats['errors']}")
+        self.log(f"\nOutput: {animal_dir}")
+
+        # Validate if requested
+        if self.config.validate_output:
+            self.validate(animal_dir)
+
+        return total_stats
+
+    def validate(self, animal_dir: Path) -> bool:
         """Validate processed dataset."""
         self.log("\n" + "=" * 80)
         self.log("Validating Output")
         self.log("=" * 80)
 
-        train_dir = output_dir / animal_name / "train"
-
+        train_dir = animal_dir / "train"
         if not train_dir.exists():
             self.log("Train directory not found", "ERROR")
             return False
 
         sequences = sorted([d for d in train_dir.iterdir() if d.is_dir()])
-
         all_valid = True
+        total_frames = 0
 
         for seq in sequences:
-            rgb_files = sorted(seq.glob("*_rgb.png"))
-            mask_files = sorted(seq.glob("*_mask.png"))
-            box_files = sorted(seq.glob("*_box.txt"))
-            meta_files = sorted(seq.glob("*_metadata.json"))
+            rgb_count = len(list(seq.glob("*_rgb.png")))
+            mask_count = len(list(seq.glob("*_mask.png")))
+            box_count = len(list(seq.glob("*_box.txt")))
+            meta_count = len(list(seq.glob("*_metadata.json")))
 
-            counts = {
-                'rgb': len(rgb_files),
-                'mask': len(mask_files),
-                'box': len(box_files),
-                'meta': len(meta_files)
-            }
+            is_valid = (rgb_count == mask_count == box_count == meta_count)
+            status = "OK" if is_valid else "MISMATCH"
 
-            status = "✓" if all(c == counts['rgb'] for c in counts.values()) else "✗"
+            self.log(f"  {seq.name}: RGB={rgb_count}, Mask={mask_count}, Box={box_count}, Meta={meta_count} [{status}]")
 
-            self.log(f"  {seq.name}: RGB={counts['rgb']}, Mask={counts['mask']}, Box={counts['box']}, Meta={counts['meta']} {status}")
-
-            if not all(c == counts['rgb'] for c in counts.values()):
+            if not is_valid:
                 all_valid = False
+            total_frames += rgb_count
+
+        self.log(f"\nTotal sequences: {len(sequences)}")
+        self.log(f"Total frames: {total_frames}")
 
         if all_valid:
-            self.log("\n✅ All files validated successfully!")
+            self.log("\nValidation PASSED", "INFO")
         else:
-            self.log("\n⚠️  Some files are missing", "WARN")
+            self.log("\nValidation FAILED - some files missing", "WARN")
 
         return all_valid
 
@@ -402,116 +562,157 @@ class SAM3DDatasetPreprocessor:
 def interactive_mode():
     """Interactive preprocessing wizard."""
     print("\n" + "=" * 80)
-    print("SAM3D Dataset Preprocessing Wizard")
+    print("SAM3D to Fauna Dataset Preprocessing Wizard")
     print("=" * 80)
 
-    # Step 1: Source directory
-    print("\n[Step 1] Source Directory")
-    default_source = "/home/joon/dev/sam3d_gui/outputs/fauna_datasets/mouse"
-    source_input = input(f"Source directory [{default_source}]: ").strip()
-    source_dir = Path(source_input if source_input else default_source)
+    config = PreprocessConfig()
 
-    if not source_dir.exists():
-        print(f"❌ Source not found: {source_dir}")
+    # Source
+    print("\n[1/5] Source Directory")
+    default_src = "/home/joon/dev/sam3d_gui/outputs/fauna_datasets/mouse_batch_20251125_manual"
+    src_input = input(f"Source [{default_src}]: ").strip()
+    config.source_dir = src_input if src_input else default_src
+
+    if not Path(config.source_dir).exists():
+        print(f"Source not found: {config.source_dir}")
         return
 
-    # Step 2: Animal name
-    print("\n[Step 2] Animal Name")
-    default_animal = source_dir.name
+    # Animal name
+    print("\n[2/5] Animal Name")
+    default_animal = "mouse_sam3d_manual"
     animal_input = input(f"Animal name [{default_animal}]: ").strip()
-    animal_name = animal_input if animal_input else default_animal
+    config.animal_name = animal_input if animal_input else default_animal
 
-    # Step 3: Output directory
-    print("\n[Step 3] Output Directory")
-    default_output = "/home/joon/dev/3DAnimals/data/fauna_processed"
-    output_input = input(f"Output directory [{default_output}]: ").strip()
-    output_dir = Path(output_input if output_input else default_output)
+    # Target
+    print("\n[3/5] Target Directory")
+    default_target = "/home/joon/dev/3DAnimals/data/fauna/large_scale"
+    target_input = input(f"Target [{default_target}]: ").strip()
+    config.target_dir = target_input if target_input else default_target
 
-    # Step 4: Copy or symlink
-    print("\n[Step 4] File Handling")
-    print("  [1] Copy files (standalone, uses disk space)")
-    print("  [2] Symlink files (saves space, requires source)")
-    method_input = input("Choose method [1]: ").strip()
-    copy_files = method_input != "2"
+    # Copy or symlink
+    print("\n[4/5] File Handling")
+    print("  [1] Copy files (standalone)")
+    print("  [2] Symlink (saves space)")
+    method = input("Choice [1]: ").strip()
+    config.copy_files = (method != "2")
 
-    # Step 5: Overwrite
-    print("\n[Step 5] Overwrite Existing")
-    overwrite_input = input("Overwrite existing files? (y/n) [n]: ").strip().lower()
-    overwrite = overwrite_input == "y"
+    # Overwrite
+    print("\n[5/5] Overwrite existing?")
+    overwrite = input("Overwrite? (y/n) [n]: ").strip().lower()
+    config.overwrite = (overwrite == 'y')
 
-    # Confirm
+    # Summary
     print("\n" + "=" * 80)
-    print("Summary")
+    print("Configuration Summary")
     print("=" * 80)
-    print(f"Source:    {source_dir}")
-    print(f"Animal:    {animal_name}")
-    print(f"Output:    {output_dir}")
-    print(f"Method:    {'Copy' if copy_files else 'Symlink'}")
-    print(f"Overwrite: {overwrite}")
-    print()
+    print(f"Source:     {config.source_dir}")
+    print(f"Target:     {config.target_dir}/{config.animal_name}")
+    print(f"Copy files: {config.copy_files}")
+    print(f"Overwrite:  {config.overwrite}")
 
-    confirm = input("Proceed? (y/n): ").strip().lower()
+    confirm = input("\nProceed? (y/n): ").strip().lower()
     if confirm != 'y':
         print("Aborted.")
         return
 
     # Process
-    preprocessor = SAM3DDatasetPreprocessor()
-    stats = preprocessor.process_dataset(
-        source_dir,
-        output_dir,
-        animal_name,
-        copy_files=copy_files,
-        overwrite=overwrite
-    )
-
-    # Validate
-    preprocessor.validate_output(output_dir, animal_name)
+    preprocessor = SAM3DToFaunaPreprocessor(config)
+    preprocessor.process()
 
     # Next steps
     print("\n" + "=" * 80)
     print("Next Steps")
     print("=" * 80)
-    print(f"\n1. Prepare for 3DAnimals training:")
-    print(f"   python scripts/prepare_fauna_dataset.py \\")
-    print(f"     --source {output_dir / animal_name / 'train'} \\")
-    print(f"     --animal {animal_name}")
-    print(f"\n2. Or manually integrate:")
-    print(f"   mv {output_dir / animal_name} data/fauna/large_scale/")
-    print(f"   python run.py --config-name train_{animal_name}_debug")
+    print(f"\n1. Create training config:")
+    print(f"   # Edit config/dataset/mouse.yaml to point to new dataset")
+    print(f"\n2. Run debug training:")
+    print(f"   python run.py --config-name train_mouse_debug")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Preprocess SAM3D dataset for 3DAnimals")
-    parser.add_argument("--interactive", "-i", action="store_true", help="Interactive wizard mode")
-    parser.add_argument("--source", type=str, help="Source directory (SAM3D output)")
-    parser.add_argument("--animal", type=str, help="Animal name")
-    parser.add_argument("--output", type=str, default="/home/joon/dev/3DAnimals/data/fauna_processed", help="Output directory")
-    parser.add_argument("--copy", action="store_true", help="Copy files instead of symlink")
-    parser.add_argument("--overwrite", action="store_true", help="Overwrite existing files")
+    parser = argparse.ArgumentParser(
+        description="Preprocess SAM3D GUI output to Fauna format",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # With config file
+  python scripts/preprocess_sam3d_dataset.py --config config/preprocess/sam3d_to_fauna.yaml
+
+  # Command line
+  python scripts/preprocess_sam3d_dataset.py \\
+    --source /path/to/sam3d_output \\
+    --target /path/to/fauna/large_scale \\
+    --animal mouse_sam3d
+
+  # Interactive
+  python scripts/preprocess_sam3d_dataset.py --interactive
+        """
+    )
+
+    parser.add_argument("--config", "-c", type=str, help="YAML config file path")
+    parser.add_argument("--interactive", "-i", action="store_true", help="Interactive mode")
+    parser.add_argument("--source", "-s", type=str, help="Source directory (SAM3D output)")
+    parser.add_argument("--target", "-t", type=str, help="Target directory (fauna/large_scale)")
+    parser.add_argument("--animal", "-a", type=str, help="Animal/category name")
+    parser.add_argument("--copy", action="store_true", help="Copy files (default: symlink)")
+    parser.add_argument("--overwrite", action="store_true", help="Overwrite existing")
+    parser.add_argument("--verbose", "-v", action="store_true", default=True, help="Verbose output")
 
     args = parser.parse_args()
 
-    if args.interactive or not args.source:
+    # Interactive mode
+    if args.interactive:
         interactive_mode()
-    else:
-        if not args.animal:
-            print("❌ --animal is required in manual mode")
+        return
+
+    # Config file mode
+    if args.config:
+        if not HAS_YAML:
+            print("PyYAML required for config files. Install: pip install pyyaml")
             sys.exit(1)
 
-        source_dir = Path(args.source)
-        output_dir = Path(args.output)
+        config = PreprocessConfig.from_yaml(args.config)
 
-        preprocessor = SAM3DDatasetPreprocessor()
-        stats = preprocessor.process_dataset(
-            source_dir,
-            output_dir,
-            args.animal,
+        # Override with command line args
+        if args.source:
+            config.source_dir = args.source
+        if args.target:
+            config.target_dir = args.target
+        if args.animal:
+            config.animal_name = args.animal
+        if args.copy:
+            config.copy_files = True
+        if args.overwrite:
+            config.overwrite = True
+        config.verbose = args.verbose
+
+    # Command line mode
+    elif args.source and args.target and args.animal:
+        config = PreprocessConfig(
+            source_dir=args.source,
+            target_dir=args.target,
+            animal_name=args.animal,
             copy_files=args.copy,
-            overwrite=args.overwrite
+            overwrite=args.overwrite,
+            verbose=args.verbose
         )
+    else:
+        # Default: interactive
+        interactive_mode()
+        return
 
-        preprocessor.validate_output(output_dir, args.animal)
+    # Validate config
+    if not config.source_dir or not config.target_dir or not config.animal_name:
+        print("Error: source, target, and animal name required")
+        parser.print_help()
+        sys.exit(1)
+
+    # Process
+    preprocessor = SAM3DToFaunaPreprocessor(config)
+    stats = preprocessor.process()
+
+    if stats.get('errors', 0) > 0:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

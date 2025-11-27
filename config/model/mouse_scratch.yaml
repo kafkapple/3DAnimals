@@ -1,0 +1,132 @@
+# Mouse From Scratch Configuration
+# Train from scratch (no pretrained) with ultra-relaxed constraints
+#
+# Strategy:
+# 1. Remove pretrained SDF (clean start)
+# 2. grid_res=64 from the beginning
+# 3. Ultra-relaxed regularization (0.03)
+# 4. Simplified articulation
+#
+# Goal: Break through T000035 barrier → T000100+
+
+defaults:
+- fauna
+name: Fauna
+
+cfg_predictor_base:
+  cfg_shape:
+    grid_res: 64  # Use 64 from start
+    grid_res_coarse_iter_range:
+    - 0
+    - 0  # No progressive (always 64)
+    grid_res_coarse: 64
+    spatial_scale: 4.0  # Standard mouse scale
+    num_layers: 5
+    hidden_size: 64
+    embedder_freq: 8
+    embed_concat_pts: true
+    init_sdf: ellipsoid  # Start from ellipsoid (good prior for mouse)
+    pretrained_sdf: null  # 🔥 NO PRETRAINED - train from scratch!
+    jitter_grid: 0.05
+    symmetrize: false  # Remove symmetry constraint
+
+cfg_predictor_instance:
+  enable_articulation: true
+  cfg_articulation:
+    articulation_iter_range:
+    - 30000  # 🔧 Start even later (was 20000)
+    - inf
+    num_body_bones: 4  # Simplified
+    num_legs: 4
+    num_leg_bones: 3
+    attach_legs_to_body_iter_range:
+    - 60000  # 🔧 Much later (was 40000)
+    - inf
+  enable_deform: false
+
+cfg_render:
+  spatial_scale: 4.0
+  cam_pos_z_offset: 10
+  fov: 25
+
+# Loss Configuration - ULTRA RELAXED!
+cfg_loss:
+  # Mask losses
+  mask_loss_weight: 100.0
+  mask_dt_loss_weight: 0.
+  mask_inv_dt_loss_weight: 300.0  # 🔥 Further reduced (was 500.0)
+
+  # RGB loss
+  rgb_loss_weight: 1.0
+
+  # DINO feature loss
+  dino_feat_im_loss_weight: 10.0
+
+  # SDF regularization - ULTRA RELAXED!
+  sdf_reg_decay_start_iter: 10000
+  sdf_bce_reg_loss_weight: 0.
+  sdf_gradient_reg_loss_weight: 0.03  # 🔥 ULTRA RELAXED (was 0.05)
+
+  # Viewpoint selection
+  logit_loss_weight: 1.0
+  logit_loss_dino_feat_im_loss_multiplier: 50.0
+
+  # Articulation regularization
+  arti_reg_loss_iter_range: [60000, inf]
+  arti_reg_loss_weight: 0.2
+
+  # Deformation regularization
+  deform_reg_loss_weight: 10.0
+
+  # Fauna-specific
+  logit_loss_dino_feat_im_loss_multiplier_dict: {0: 50., 150000: 500.}
+  dino_feat_im_loss_weight_dict: {0: 10., 150000: 1.}
+  logit_loss_mask_multiplier: 0.05
+  logit_loss_mask_inv_dt_multiplier: 0.05
+
+# Optimizer Configuration
+cfg_optim_base:
+  lr: 0.001
+  weight_decay: 0.
+
+# ==============================================================================
+# From Scratch Strategy
+# ==============================================================================
+#
+# Why Remove Pretrained?
+# ----------------------
+# Pretrained SDF may be incompatible:
+# - Trained on grid_res=32, we use 64
+# - Trained on different data distribution
+# - Causes initial instability
+#
+# Starting from ellipsoid is sufficient:
+# - Good geometric prior for quadruped animals
+# - Let the model learn mouse-specific shape from data
+# - More stable than mismatched pretrained weights
+#
+# Regularization Comparison:
+# ┌─────────────┬────────────┬───────────┬──────────┐
+# │ Config      │ reg_weight │ Pretrain  │ Result   │
+# ├─────────────┼────────────┼───────────┼──────────┤
+# │ Baseline    │ 0.1        │ Yes (64)  │ T000029  │
+# │ Ultimate    │ 0.05       │ Yes (64)  │ T000035  │
+# │ Scratch     │ 0.03       │ No        │ T00100+? │
+# └─────────────┴────────────┴───────────┴──────────┘
+#
+# Expected SDF Gradient Trajectory:
+# - T000010: ~2.0 (initial learning)
+# - T000030: ~6.0 (critical point with 0.05 weight)
+# - T000050: ~8.0 (with 0.03 weight, should survive)
+# - T000100: ~12.0 (acceptable with ultra-relaxed)
+#
+# Trade-offs:
+# ✅ No pretrained mismatch
+# ✅ Clean learning from scratch
+# ✅ 3x more relaxed constraint (0.03 vs 0.1)
+# ✅ grid_res=64 stability
+# ⚠️ Slower initial convergence (no pretrained boost)
+# ⚠️ Lower mesh quality (relaxed Eikonal)
+#
+# But for mouse reconstruction with 540 frames, this is the BEST bet!
+# ==============================================================================
