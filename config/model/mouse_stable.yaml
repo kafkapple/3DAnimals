@@ -46,10 +46,10 @@ cfg_loss:
   # DINO feature loss
   dino_feat_im_loss_weight: 5.0   # 낮춤
 
-  # SDF regularization (핵심! 강화)
-  sdf_reg_decay_start_iter: 50000    # 더 늦게 decay 시작
-  sdf_bce_reg_loss_weight: 0.5       # 켜기! (핵심)
-  sdf_gradient_reg_loss_weight: 0.5  # 5배 강화
+  # SDF regularization (핵심! 더 강화)
+  sdf_reg_decay_start_iter: 100000   # 매우 늦게 decay 시작
+  sdf_bce_reg_loss_weight: 2.0       # 강화! (collapse 방지)
+  sdf_gradient_reg_loss_weight: 2.0  # 20배 강화
 
   # Viewpoint selection
   logit_loss_weight: 0.5          # 낮춤
@@ -68,7 +68,7 @@ cfg_loss:
   logit_loss_mask_multiplier: 0.02
   logit_loss_mask_inv_dt_multiplier: 0.02
 
-# 낮은 Learning Rate (안정성)
+# 매우 낮은 Learning Rate (최대 안정성)
 cfg_optim_base:
-  lr: 0.0005              # 절반으로 낮춤
+  lr: 0.0002              # 더 낮춤 (안정성 최우선)
   weight_decay: 0.0001    # 약간의 weight decay

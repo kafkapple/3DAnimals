@@ -16,8 +16,9 @@ run_name: ${exp_name}_${now:%Y%m%d_%H%M%S}
 
 # Training iterations
 num_iters: 200000
-save_checkpoint_freq: 5000
-log_image_freq: 500
+save_checkpoint_freq: 1000      # 체크포인트 자주 저장
+log_image_freq: 100             # 이미지 자주 로깅
+save_train_result_freq: 500     # 메시/이미지 자주 저장 (핵심!)
 
 # Device
 device: cuda
