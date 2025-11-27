@@ -647,7 +647,7 @@ def interactive_mode():
 
     # Target
     print("\n[3/5] Target Directory")
-    default_target = "/home/joon/dev/3DAnimals/data/fauna/large_scale"
+    default_target = "/home/joon/dev/3DAnimals/data/fauna/Fauna_dataset/large_scale"
     target_input = input(f"Target [{default_target}]: ").strip()
     config.target_dir = target_input if target_input else default_target
 
