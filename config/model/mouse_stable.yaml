@@ -1,0 +1,74 @@
+# Mouse Stable Model Configuration
+# 강화된 regularization으로 mesh collapse 방지
+
+defaults:
+  - fauna
+
+name: Fauna
+
+cfg_predictor_base:
+  cfg_shape:
+    grid_res: 32
+    grid_res_coarse_iter_range: [0, 50000]  # 더 오래 coarse 유지
+    grid_res_coarse: 32
+    spatial_scale: 3.0      # 더 작게 (생쥐 크기에 맞게)
+    num_layers: 5
+    hidden_size: 64
+    embedder_freq: 8
+    embed_concat_pts: true
+    init_sdf: ellipsoid
+    jitter_grid: 0.02       # 더 작게 (안정성)
+    symmetrize: true
+
+cfg_predictor_instance:
+  enable_articulation: true
+  cfg_articulation:
+    articulation_iter_range: [30000, inf]   # 더 늦게 시작
+    num_body_bones: 6
+    num_legs: 4
+    num_leg_bones: 3
+    attach_legs_to_body_iter_range: [50000, inf]  # 더 늦게
+  enable_deform: false
+
+cfg_render:
+  spatial_scale: 3.0
+
+# 강화된 Loss Configuration
+cfg_loss:
+  # Mask losses
+  mask_loss_weight: 50.0          # 낮춤 (급격한 변화 방지)
+  mask_dt_loss_weight: 0.
+  mask_inv_dt_loss_weight: 500.0  # 낮춤
+
+  # RGB loss
+  rgb_loss_weight: 1.0
+
+  # DINO feature loss
+  dino_feat_im_loss_weight: 5.0   # 낮춤
+
+  # SDF regularization (핵심! 강화)
+  sdf_reg_decay_start_iter: 50000    # 더 늦게 decay 시작
+  sdf_bce_reg_loss_weight: 0.5       # 켜기! (핵심)
+  sdf_gradient_reg_loss_weight: 0.5  # 5배 강화
+
+  # Viewpoint selection
+  logit_loss_weight: 0.5          # 낮춤
+  logit_loss_dino_feat_im_loss_multiplier: 20.0
+
+  # Articulation regularization
+  arti_reg_loss_iter_range: [60000, inf]
+  arti_reg_loss_weight: 0.3
+
+  # Deformation regularization
+  deform_reg_loss_weight: 10.0
+
+  # Multi-view
+  logit_loss_dino_feat_im_loss_multiplier_dict: {0: 20., 100000: 100.}
+  dino_feat_im_loss_weight_dict: {0: 5., 100000: 1.}
+  logit_loss_mask_multiplier: 0.02
+  logit_loss_mask_inv_dt_multiplier: 0.02
+
+# 낮은 Learning Rate (안정성)
+cfg_optim_base:
+  lr: 0.0005              # 절반으로 낮춤
+  weight_decay: 0.0001    # 약간의 weight decay
