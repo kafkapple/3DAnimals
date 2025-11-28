@@ -129,7 +129,14 @@ if [ -z "$SAM3D_SOURCE" ]; then
 fi
 
 # Set output path (directly to Fauna dataset location)
-FAUNA_TARGET="${PROJECT_ROOT}/data/fauna/large_scale"
+FAUNA_ROOT="${PROJECT_ROOT}/data/fauna"
+FAUNA_TARGET="${FAUNA_ROOT}/large_scale"
+
+# Create required empty directories for FaunaDataset compatibility
+mkdir -p "${FAUNA_ROOT}/few_shot_animal3d"
+mkdir -p "${FAUNA_ROOT}/few_shot_web"
+mkdir -p "${FAUNA_ROOT}/few_shot_web_back"
+mkdir -p "${FAUNA_TARGET}"
 
 # Print configuration
 echo
