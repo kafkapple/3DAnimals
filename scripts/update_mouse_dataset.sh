@@ -161,7 +161,7 @@ print_step "Step 1/4: Preprocessing SAM3D dataset..."
 python3 ${PROJECT_ROOT}/scripts/preprocess_sam3d_dataset.py \
     --source "$SAM3D_SOURCE" \
     --animal "$ANIMAL" \
-    --output "$PROCESSED_OUTPUT" \
+    --target "$PROCESSED_OUTPUT" \
     $USE_COPY
 
 if [ $? -ne 0 ]; then
