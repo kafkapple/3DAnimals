@@ -30,4 +30,4 @@ save_checkpoint_freq: 1000
 log_image_freq: 100
 checkpoint_dir: results/magicpony/mouse_debug
 resume: false
-logger_type: none
+use_logger: false
