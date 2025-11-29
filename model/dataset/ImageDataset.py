@@ -25,8 +25,9 @@ class ImageDataset(Dataset):
             self.samples.sort()
         self.in_image_size = in_image_size
         self.out_image_size = out_image_size
-        self.image_transform = transforms.Compose([transforms.Resize(self.out_image_size, interpolation=InterpolationMode.BILINEAR), transforms.ToTensor()])
-        self.mask_transform = transforms.Compose([transforms.Resize(self.out_image_size, interpolation=InterpolationMode.NEAREST), transforms.ToTensor()])
+        # Force square resize to prevent aspect ratio mismatch
+        self.image_transform = transforms.Compose([transforms.Resize((self.out_image_size, self.out_image_size), interpolation=InterpolationMode.BILINEAR), transforms.ToTensor()])
+        self.mask_transform = transforms.Compose([transforms.Resize((self.out_image_size, self.out_image_size), interpolation=InterpolationMode.NEAREST), transforms.ToTensor()])
         self.load_dino_feature = load_dino_feature
         if load_dino_feature:
             self.dino_feature_loader = [f"feat{dino_feature_dim}.png", dino_loader, dino_feature_dim]
