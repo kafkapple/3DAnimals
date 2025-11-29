@@ -21,14 +21,28 @@ cfg_predictor_base:
     symmetrize: true
 
 cfg_predictor_instance:
+  spatial_scale: ${..cfg_render.spatial_scale}
+  enable_deform: false
   enable_articulation: true
   cfg_articulation:
     articulation_iter_range: [30000, inf]   # 더 늦게 시작
+    architecture: attention
+    num_layers: 4
+    hidden_size: 256
+    embedder_freq: 8
+    bone_feature_mode: sample+global
     num_body_bones: 6
+    body_bones_mode: z_minmax_y+
     num_legs: 4
     num_leg_bones: 3
     attach_legs_to_body_iter_range: [50000, inf]  # 더 늦게
-  enable_deform: false
+    legs_to_body_joint_indices: null
+    static_root_bones: false
+    skinning_temperature: 0.05
+    max_arti_angle: 60
+    constrain_legs: false
+    output_multiplier: 0.1
+    enable_refine: false
 
 cfg_render:
   spatial_scale: 3.0
