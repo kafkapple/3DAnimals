@@ -8,18 +8,18 @@ defaults:
 name: Fauna
 cfg_predictor_base:
   cfg_shape:
-    grid_res: 32  # Archive config (memory-optimized)
+    grid_res: 64
     grid_res_coarse_iter_range:
     - 0
-    - 100000
+    - 30000
     grid_res_coarse: 32
-    spatial_scale: 4.0  # Archive config
+    spatial_scale: 4.5
     num_layers: 5
-    hidden_size: 64  # Best result: Pretrained (64) → T000031
+    hidden_size: 128
     embedder_freq: 8
     embed_concat_pts: true
     init_sdf: ellipsoid
-    pretrained_sdf: ${oc.env:PWD}/checkpoints/mouse_sdf_pretrained.pth  # Pretrained (64)
+    pretrained_sdf: null
     jitter_grid: 0.05
     symmetrize: true
 cfg_predictor_instance:
@@ -36,44 +36,4 @@ cfg_predictor_instance:
     - inf
   enable_deform: false
 cfg_render:
-  spatial_scale: 4.0  # Archive config
-
-# Loss Configuration (from Archive)
-cfg_loss:
-  # Mask losses
-  mask_loss_weight: 100.0
-  mask_dt_loss_weight: 0.
-  mask_inv_dt_loss_weight: 1000.0
-
-  # RGB loss
-  rgb_loss_weight: 1.0
-
-  # DINO feature loss
-  dino_feat_im_loss_weight: 10.0
-
-  # SDF regularization
-  sdf_reg_decay_start_iter: 10000
-  sdf_bce_reg_loss_weight: 0.
-  sdf_gradient_reg_loss_weight: 0.1
-
-  # Viewpoint selection
-  logit_loss_weight: 1.0
-  logit_loss_dino_feat_im_loss_multiplier: 50.0
-
-  # Articulation regularization
-  arti_reg_loss_iter_range: [60000, inf]
-  arti_reg_loss_weight: 0.2
-
-  # Deformation regularization
-  deform_reg_loss_weight: 10.0
-
-  # Fauna-specific (for multi-view large-scale training)
-  logit_loss_dino_feat_im_loss_multiplier_dict: {0: 50., 150000: 500.}
-  dino_feat_im_loss_weight_dict: {0: 10., 150000: 1.}
-  logit_loss_mask_multiplier: 0.05
-  logit_loss_mask_inv_dt_multiplier: 0.05
-
-# Optimizer Configuration (from Archive)
-cfg_optim_base:
-  lr: 0.001
-  weight_decay: 0.
+  spatial_scale: 4.5
