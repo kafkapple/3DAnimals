@@ -93,6 +93,15 @@ class DINOFeatureExtractor:
         image = Image.open(rgb_image_path).convert('RGB')
         img_tensor = self.transform(image).unsqueeze(0).to(self.device)
 
+        # Get image size after transform
+        _, _, img_h, img_w = img_tensor.shape
+
+        # Calculate expected patch grid size
+        # ViT-S/8 uses patch_size=8, so grid = img_size // patch_size
+        patch_size = 8  # for dino_vits8
+        h = img_h // patch_size
+        w = img_w // patch_size
+
         # Extract DINO features
         with torch.no_grad():
             features = self.dino_model.get_intermediate_layers(img_tensor, n=1)[0]
@@ -101,7 +110,16 @@ class DINOFeatureExtractor:
 
             # Reshape to spatial grid
             num_patches = patch_features.shape[1]
-            h = w = int(np.sqrt(num_patches))
+            expected_patches = h * w
+
+            if num_patches != expected_patches:
+                # Handle non-square or different size images
+                # Try to infer the correct grid size
+                h = w = int(np.sqrt(num_patches))
+                if h * w != num_patches:
+                    raise ValueError(f"Cannot reshape {num_patches} patches to square grid. "
+                                     f"Image size: {img_h}x{img_w}, expected patches: {expected_patches}")
+
             spatial_features = patch_features.reshape(1, h, w, -1)
 
         return spatial_features.squeeze(0).cpu().numpy()  # (H, W, D)
