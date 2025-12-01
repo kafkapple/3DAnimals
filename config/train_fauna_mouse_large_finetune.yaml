@@ -24,7 +24,7 @@ shuffle_dataset_paths: false  # Avoid AttributeError with accelerate DataLoader
 
 # Checkpoint - START FROM PRETRAINED
 checkpoint_dir: results/fauna_mouse_large_finetune
-save_checkpoint_freq: 20000
+save_checkpoint_freq: 5000  # More frequent saves
 keep_num_checkpoint: 5
 resume: results/fauna/pretrained_fauna/pretrained_fauna.pth  # Pretrained model!
 
