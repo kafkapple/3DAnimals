@@ -25,8 +25,8 @@ shuffle_dataset_paths: false  # Avoid AttributeError with accelerate DataLoader
 
 # Checkpoint settings
 checkpoint_dir: results/fauna_mouse_large
-save_checkpoint_freq: 20000
-keep_num_checkpoint: 5
+save_checkpoint_freq: 1500  # Frequent saves to survive crashes
+keep_num_checkpoint: 3  # Keep only recent 3 checkpoints (auto-delete old ones)
 resume: true  # Resume from checkpoint if exists
 
 # Visualization - save mesh/images during training
