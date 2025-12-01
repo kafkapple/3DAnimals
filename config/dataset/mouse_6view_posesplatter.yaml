@@ -1,0 +1,33 @@
+# Mouse 6-view Dataset for Pose Splatter Experiment Reproduction
+#
+# Following Pose Splatter paper methodology:
+# - Training: 1 timestep × 6 camera views = 6 images
+# - Testing: Different timestep × 6 camera views = 6 images
+#
+# The 6 synchronized views provide multi-view supervision for shape learning,
+# which helps prevent mesh collapse even with very limited data.
+
+data_type: fauna
+in_image_size: 256
+out_image_size: 256
+
+# Pose Splatter uses all 6 views, so batch_size = 6
+batch_size: 6
+num_workers: 4
+
+# Dataset paths
+train_data_dir: data/fauna/mouse_6view_posesplatter
+val_data_dir: null
+test_data_dir: data/fauna/mouse_6view_posesplatter
+
+# Data augmentation - minimal for this experiment
+# (want to keep camera views consistent)
+random_shuffle_samples_train: false
+random_xflip_train: false  # Don't flip - multi-view consistency important
+
+# Background and features
+background_mode: none  # black background
+load_flow: false
+load_dino_feature: false  # No pre-computed DINO features
+load_dino_cluster: false
+dino_feature_dim: 16
