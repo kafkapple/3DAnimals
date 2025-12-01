@@ -112,9 +112,20 @@ def create_fauna_files(
     mask_path: Path,
     output_dir: Path,
     frame_id: int,
-    use_symlink: bool = True
+    use_symlink: bool = True,
+    crop_and_resize: bool = True,
+    target_size: int = 256,
+    padding_ratio: float = 0.2
 ) -> None:
-    """Create Fauna-format files for a single image pair."""
+    """Create Fauna-format files for a single image pair.
+
+    Args:
+        crop_and_resize: If True, crop around subject and resize to target_size.
+                        This is REQUIRED for Fauna to work properly when subject
+                        is small relative to the full image.
+        target_size: Output image size (default 256 for Fauna)
+        padding_ratio: Padding around bbox (0.2 = 20% padding on each side)
+    """
     base_name = f"{frame_id:07d}"
 
     rgb_out = output_dir / f"{base_name}_rgb.png"
@@ -123,34 +134,92 @@ def create_fauna_files(
     meta_out = output_dir / f"{base_name}_metadata.json"
 
     # Get bbox from mask
-    x0, y0, x1, y1, full_w, full_h = compute_bbox_from_mask(mask_path)
+    x0, y0, x1, y1, full_w, full_h = compute_bbox_from_mask(mask_path, padding_ratio=padding_ratio)
 
-    # Symlink or copy
-    if use_symlink:
-        if rgb_out.exists():
-            rgb_out.unlink()
-        if mask_out.exists():
-            mask_out.unlink()
-        rgb_out.symlink_to(rgb_path.resolve())
-        mask_out.symlink_to(mask_path.resolve())
+    if crop_and_resize:
+        # Load images
+        rgb_img = Image.open(rgb_path).convert('RGB')
+        mask_img = Image.open(mask_path).convert('L')
+
+        # Make square crop (use max dimension)
+        bbox_w = x1 - x0
+        bbox_h = y1 - y0
+        max_dim = max(bbox_w, bbox_h)
+
+        # Center the crop
+        cx = (x0 + x1) // 2
+        cy = (y0 + y1) // 2
+
+        # Calculate square crop bounds
+        half_dim = max_dim // 2
+        crop_x0 = max(0, cx - half_dim)
+        crop_y0 = max(0, cy - half_dim)
+        crop_x1 = min(full_w, cx + half_dim)
+        crop_y1 = min(full_h, cy + half_dim)
+
+        # Adjust if hit boundary
+        if crop_x1 - crop_x0 < max_dim:
+            if crop_x0 == 0:
+                crop_x1 = min(full_w, crop_x0 + max_dim)
+            else:
+                crop_x0 = max(0, crop_x1 - max_dim)
+        if crop_y1 - crop_y0 < max_dim:
+            if crop_y0 == 0:
+                crop_y1 = min(full_h, crop_y0 + max_dim)
+            else:
+                crop_y0 = max(0, crop_y1 - max_dim)
+
+        # Crop and resize
+        rgb_crop = rgb_img.crop((crop_x0, crop_y0, crop_x1, crop_y1))
+        mask_crop = mask_img.crop((crop_x0, crop_y0, crop_x1, crop_y1))
+
+        rgb_resized = rgb_crop.resize((target_size, target_size), Image.BILINEAR)
+        mask_resized = mask_crop.resize((target_size, target_size), Image.NEAREST)
+
+        rgb_resized.save(rgb_out)
+        mask_resized.save(mask_out)
+
+        # Update bbox info for cropped image
+        # In cropped coordinates, subject should be centered
+        new_x0 = 0
+        new_y0 = 0
+        new_x1 = target_size
+        new_y1 = target_size
+        out_w = target_size
+        out_h = target_size
+
     else:
-        import shutil
-        shutil.copy2(rgb_path, rgb_out)
-        shutil.copy2(mask_path, mask_out)
+        # Original behavior: symlink or copy without cropping
+        if use_symlink:
+            if rgb_out.exists():
+                rgb_out.unlink()
+            if mask_out.exists():
+                mask_out.unlink()
+            rgb_out.symlink_to(rgb_path.resolve())
+            mask_out.symlink_to(mask_path.resolve())
+        else:
+            import shutil
+            shutil.copy2(rgb_path, rgb_out)
+            shutil.copy2(mask_path, mask_out)
 
-    # Write box.txt
-    crop_w = x1 - x0
-    crop_h = y1 - y0
-    box_data = f"{x0} {y0} {crop_w} {crop_h} {full_w} {full_h} 1.0 0"
+        new_x0, new_y0, new_x1, new_y1 = x0, y0, x1, y1
+        out_w, out_h = full_w, full_h
+
+    # Write box.txt (Fauna format)
+    crop_w = new_x1 - new_x0
+    crop_h = new_y1 - new_y0
+    box_data = f"{new_x0} {new_y0} {crop_w} {crop_h} {out_w} {out_h} 1.0 0"
     with open(box_out, 'w') as f:
         f.write(box_data)
 
     # Write metadata.json
     metadata = {
         "video_frame_id": int(frame_id),
-        "crop_box_xyxy": [int(x0), int(y0), int(x1), int(y1)],
-        "video_frame_width": int(full_w),
-        "video_frame_height": int(full_h)
+        "crop_box_xyxy": [int(new_x0), int(new_y0), int(new_x1), int(new_y1)],
+        "video_frame_width": int(out_w),
+        "video_frame_height": int(out_h),
+        "original_bbox_xyxy": [int(x0), int(y0), int(x1), int(y1)],
+        "original_size": [int(full_w), int(full_h)]
     }
     with open(meta_out, 'w') as f:
         json.dump(metadata, f, indent=2)
@@ -198,7 +267,9 @@ def setup_pose_splatter_debug(
     test_seq: int = 3000,
     train_frame: int = 0,
     test_frame: int = 0,
-    use_symlink: bool = True
+    use_symlink: bool = True,
+    crop_and_resize: bool = True,
+    target_size: int = 256
 ) -> None:
     """Setup Pose Splatter paper debug dataset.
 
@@ -224,7 +295,12 @@ def setup_pose_splatter_debug(
     for rgb_path, mask_path, camera_id in train_frames:
         # Use unique frame_id encoding camera info
         unique_id = train_seq * 10 + camera_id
-        create_fauna_files(rgb_path, mask_path, train_dir, unique_id, use_symlink)
+        create_fauna_files(
+            rgb_path, mask_path, train_dir, unique_id,
+            use_symlink=use_symlink,
+            crop_and_resize=crop_and_resize,
+            target_size=target_size
+        )
         print(f"  Camera {camera_id}: {rgb_path.parent.name}")
         frame_id += 1
 
@@ -238,7 +314,12 @@ def setup_pose_splatter_debug(
 
     for rgb_path, mask_path, camera_id in test_frames:
         unique_id = test_seq * 10 + camera_id
-        create_fauna_files(rgb_path, mask_path, val_dir, unique_id, use_symlink)
+        create_fauna_files(
+            rgb_path, mask_path, val_dir, unique_id,
+            use_symlink=use_symlink,
+            crop_and_resize=crop_and_resize,
+            target_size=target_size
+        )
         print(f"  Camera {camera_id}: {rgb_path.parent.name}")
 
     # Test data: same as val
@@ -246,7 +327,12 @@ def setup_pose_splatter_debug(
     test_dir.mkdir(parents=True, exist_ok=True)
     for rgb_path, mask_path, camera_id in test_frames:
         unique_id = test_seq * 10 + camera_id
-        create_fauna_files(rgb_path, mask_path, test_dir, unique_id, use_symlink)
+        create_fauna_files(
+            rgb_path, mask_path, test_dir, unique_id,
+            use_symlink=use_symlink,
+            crop_and_resize=crop_and_resize,
+            target_size=target_size
+        )
 
     # Create placeholder directories
     for placeholder in ['few_shot_animal3d', 'few_shot_web', 'few_shot_web_back']:
@@ -263,7 +349,9 @@ def setup_pose_splatter_debug(
         "test_frame": test_frame,
         "train_images": len(train_frames),
         "test_images": len(test_frames),
-        "use_symlink": use_symlink
+        "use_symlink": use_symlink,
+        "crop_and_resize": crop_and_resize,
+        "target_size": target_size
     }
     with open(output_path / "dataset_info.json", 'w') as f:
         json.dump(info, f, indent=2)
@@ -271,13 +359,16 @@ def setup_pose_splatter_debug(
     print(f"\n✅ Dataset created at: {output_path}")
     print(f"   Train: {len(train_frames)} images (6 views × 1 timestep)")
     print(f"   Test: {len(test_frames)} images (6 views × 1 timestep)")
+    print(f"   Crop preprocessing: {'enabled' if crop_and_resize else 'disabled'}")
 
 
 def setup_full_dataset(
     session_dir: Path,
     output_dir: Path,
     train_ratio: float = 0.8,
-    use_symlink: bool = True
+    use_symlink: bool = True,
+    crop_and_resize: bool = True,
+    target_size: int = 256
 ) -> None:
     """Setup full multi-view dataset with all sequences and frames."""
     metadata = load_session_metadata(session_dir)
@@ -321,7 +412,12 @@ def setup_full_dataset(
                 frames_6view = get_6view_frames(session_dir, metadata, mouse_id, seq, frame_idx)
                 for rgb_path, mask_path, camera_id in frames_6view:
                     unique_id = seq * 1000 + frame_idx * 10 + camera_id
-                    create_fauna_files(rgb_path, mask_path, seq_dir, unique_id, use_symlink)
+                    create_fauna_files(
+                        rgb_path, mask_path, seq_dir, unique_id,
+                        use_symlink=use_symlink,
+                        crop_and_resize=crop_and_resize,
+                        target_size=target_size
+                    )
                     total_images[split] += 1
 
         print(f"{split}: {total_images[split]} images")
@@ -337,12 +433,15 @@ def setup_full_dataset(
         "train_images": total_images['train'],
         "val_images": total_images['val'],
         "test_images": total_images['test'],
-        "use_symlink": use_symlink
+        "use_symlink": use_symlink,
+        "crop_and_resize": crop_and_resize,
+        "target_size": target_size
     }
     with open(output_path / "dataset_info.json", 'w') as f:
         json.dump(info, f, indent=2)
 
     print(f"\n✅ Dataset created at: {output_path}")
+    print(f"   Crop preprocessing: {'enabled' if crop_and_resize else 'disabled'}")
 
 
 def main():
@@ -368,11 +467,17 @@ def main():
                         help="Train ratio for full mode")
     parser.add_argument("--copy", action="store_true",
                         help="Copy files instead of symlinks")
+    parser.add_argument("--no-crop", action="store_true",
+                        help="Disable crop preprocessing (not recommended)")
+    parser.add_argument("--target_size", type=int, default=256,
+                        help="Target image size after cropping (default: 256)")
 
     args = parser.parse_args()
 
     session_dir = Path(args.session_dir)
     output_dir = Path(args.output_dir)
+
+    crop_and_resize = not args.no_crop
 
     if args.mode == "pose_splatter_debug":
         setup_pose_splatter_debug(
@@ -383,14 +488,18 @@ def main():
             test_seq=args.test_seq,
             train_frame=args.train_frame,
             test_frame=args.test_frame,
-            use_symlink=not args.copy
+            use_symlink=not args.copy,
+            crop_and_resize=crop_and_resize,
+            target_size=args.target_size
         )
     else:
         setup_full_dataset(
             session_dir=session_dir,
             output_dir=output_dir,
             train_ratio=args.train_ratio,
-            use_symlink=not args.copy
+            use_symlink=not args.copy,
+            crop_and_resize=crop_and_resize,
+            target_size=args.target_size
         )
 
 
