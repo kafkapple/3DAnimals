@@ -1,0 +1,18 @@
+# Mouse Large Dataset Configuration
+# 7200 images from sam3d_gui (72 videos × 100 frames)
+
+name: FaunaDataset
+in_image_size: 256
+out_image_size: 256
+batch_size: 8
+num_workers: 4
+
+# Data directories - using symlinks to source data
+train_data_dir: data/fauna/mouse_large
+val_data_dir: data/fauna/mouse_large
+test_data_dir: data/fauna/mouse_large
+
+random_shuffle_samples_train: true
+load_dino_feature: false
+dino_feature_dim: 16
+random_xflip_train: true
