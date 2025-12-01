@@ -4,7 +4,7 @@
 name: FaunaDataset
 in_image_size: 256
 out_image_size: 256
-batch_size: 4  # Reduced from 8 to avoid CUDA OOM
+batch_size: 8  # Original Fauna paper setting
 num_workers: 4
 
 # Data directories - using symlinks to source data
