@@ -40,6 +40,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 from PIL import Image
 import numpy as np
+from tqdm import tqdm
 
 
 def parse_video_path(video_path: str) -> Tuple[int, int, int]:
@@ -402,31 +403,43 @@ def setup_full_dataset(
 
     total_images = {'train': 0, 'val': 0, 'test': 0}
 
+    # Calculate total frames for progress bar
+    total_frames = 0
     for split, split_seqs in [('train', train_seqs), ('val', val_seqs), ('test', test_seqs)]:
         for mouse_id, seq in split_seqs:
-            # Get first video to check num_frames
             first_key = (mouse_id, 1, seq)
-            if first_key not in metadata['videos_by_key']:
-                continue
-            num_frames = metadata['videos_by_key'][first_key]['num_frames']
+            if first_key in metadata['videos_by_key']:
+                total_frames += metadata['videos_by_key'][first_key]['num_frames'] * 6  # 6 views
 
-            seq_name = f"mouse{mouse_id}_seq{seq}"
-            seq_dir = fauna_base / split / seq_name
-            seq_dir.mkdir(parents=True, exist_ok=True)
+    print(f"Processing {total_frames} images...")
 
-            for frame_idx in range(num_frames):
-                frames_6view = get_6view_frames(session_dir, metadata, mouse_id, seq, frame_idx)
-                for rgb_path, mask_path, camera_id in frames_6view:
-                    unique_id = seq * 1000 + frame_idx * 10 + camera_id
-                    create_fauna_files(
-                        rgb_path, mask_path, seq_dir, unique_id,
-                        use_symlink=use_symlink,
-                        crop_and_resize=crop_and_resize,
-                        target_size=target_size
-                    )
-                    total_images[split] += 1
+    with tqdm(total=total_frames, desc="Creating dataset") as pbar:
+        for split, split_seqs in [('train', train_seqs), ('val', val_seqs), ('test', test_seqs)]:
+            for mouse_id, seq in split_seqs:
+                # Get first video to check num_frames
+                first_key = (mouse_id, 1, seq)
+                if first_key not in metadata['videos_by_key']:
+                    continue
+                num_frames = metadata['videos_by_key'][first_key]['num_frames']
 
-        print(f"{split}: {total_images[split]} images")
+                seq_name = f"mouse{mouse_id}_seq{seq}"
+                seq_dir = fauna_base / split / seq_name
+                seq_dir.mkdir(parents=True, exist_ok=True)
+
+                for frame_idx in range(num_frames):
+                    frames_6view = get_6view_frames(session_dir, metadata, mouse_id, seq, frame_idx)
+                    for rgb_path, mask_path, camera_id in frames_6view:
+                        unique_id = seq * 1000 + frame_idx * 10 + camera_id
+                        create_fauna_files(
+                            rgb_path, mask_path, seq_dir, unique_id,
+                            use_symlink=use_symlink,
+                            crop_and_resize=crop_and_resize,
+                            target_size=target_size
+                        )
+                        total_images[split] += 1
+                        pbar.update(1)
+
+            print(f"{split}: {total_images[split]} images")
 
     # Create placeholder directories
     for placeholder in ['few_shot_animal3d', 'few_shot_web', 'few_shot_web_back']:
