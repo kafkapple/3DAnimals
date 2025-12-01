@@ -27,12 +27,19 @@ dataset:
   dino_feature_dim: 16
   random_xflip_train: false
 
-# Override model grid_res for GPU memory
+# Model settings - following original Fauna paper settings
+# Note: With proper crop preprocessing, original settings should work
 model:
   cfg_predictor_base:
     cfg_shape:
-      grid_res: 32  # Reduced from 64 for debug (32_tets.npz exists)
-      grid_res_coarse: 32  # Must use existing tet file (32_tets.npz)
+      grid_res: 64  # Fauna default (128), reduced for GPU memory
+      grid_res_coarse: 32
+      grid_res_coarse_iter_range: [0, 2000]  # Progressive training
+  cfg_loss:
+    # Original Fauna values (with crop preprocessing these should work)
+    sdf_gradient_reg_loss_weight: 0.1  # Fauna default
+    mask_loss_weight: 100.0  # Fauna default
+    mask_inv_dt_loss_weight: 1000.0  # Fauna default
 
 
 # Debug training settings
