@@ -20,6 +20,7 @@ run_test: true  # Save mesh visualizations after training
 seed: 42
 gpu: 0
 num_iters: 100000  # 100K iterations for fine-tuning
+shuffle_dataset_paths: false  # Avoid AttributeError with accelerate DataLoader
 
 # Checkpoint - START FROM PRETRAINED
 checkpoint_dir: results/fauna_mouse_large_finetune
