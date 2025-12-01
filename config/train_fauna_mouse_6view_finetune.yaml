@@ -1,0 +1,50 @@
+# Fauna Fine-tuning from Pretrained for Mouse 6-view
+#
+# Experiment B1: Use pretrained Fauna (128 species) and fine-tune on mouse
+
+hydra:
+  run:
+    dir: .
+  output_subdir: ${checkpoint_dir}
+
+
+defaults:
+  - base_fauna
+  - dataset: mouse_6view_posesplatter
+  - model: fauna_mouse_6view
+
+
+# Dataset settings
+dataset:
+  in_image_size: 256
+  out_image_size: 256
+  batch_size: 6
+  train_data_dir: data/fauna/mouse_6view_posesplatter
+  val_data_dir: data/fauna/mouse_6view_posesplatter
+  test_data_dir: data/fauna/mouse_6view_posesplatter
+  random_shuffle_samples_train: false
+  load_dino_feature: false
+  dino_feature_dim: 16
+  random_xflip_train: false
+
+
+# Fine-tuning settings
+run_train: true
+run_test: true  # Run test after training to save mesh visualizations
+seed: 42
+gpu: 0
+num_iters: 50000  # Shorter for fine-tuning (vs 100K for scratch)
+
+# Checkpoint - START FROM PRETRAINED
+checkpoint_dir: results/fauna_mouse_6view_finetune
+save_checkpoint_freq: 10000
+keep_num_checkpoint: 5
+resume: results/fauna/pretrained_fauna/pretrained_fauna.pth  # Key: Pretrained model!
+
+# Visualization - save mesh/images during training
+save_train_result_freq: 5000  # Save mesh every 5K iterations
+
+# Logging
+use_logger: false
+log_image_freq: 1000
+log_loss_freq: 100

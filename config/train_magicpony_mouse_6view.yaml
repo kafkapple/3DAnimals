@@ -1,0 +1,51 @@
+# MagicPony Training for Mouse 6-view (From Scratch)
+#
+# Experiment A2: Reproduce Pose Splatter paper's MagicPony baseline
+# "trained on all six reference views using prescribed hyperparameters"
+
+hydra:
+  run:
+    dir: .
+  output_subdir: ${checkpoint_dir}
+
+
+defaults:
+  - base
+  - dataset: mouse_6view_posesplatter
+  - model: magicpony_mouse_6view
+
+
+# Dataset settings
+dataset:
+  in_image_size: 256
+  out_image_size: 256
+  batch_size: 6  # All 6 views in one batch
+  train_data_dir: data/fauna/mouse_6view_posesplatter
+  val_data_dir: data/fauna/mouse_6view_posesplatter
+  test_data_dir: data/fauna/mouse_6view_posesplatter
+  random_shuffle_samples_train: false
+  load_dino_feature: false
+  dino_feature_dim: 16
+  random_xflip_train: false
+
+
+# Training settings
+run_train: true
+run_test: true  # Run test after training to save mesh visualizations
+seed: 42
+gpu: 0
+num_iters: 100000  # 100K iterations
+
+# Checkpoint settings
+checkpoint_dir: results/magicpony_mouse_6view
+save_checkpoint_freq: 10000
+keep_num_checkpoint: 5
+resume: false  # From scratch
+
+# Visualization - save mesh/images during training
+save_train_result_freq: 10000  # Save mesh every 10K iterations
+
+# Logging
+use_logger: false
+log_image_freq: 1000
+log_loss_freq: 100

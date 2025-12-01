@@ -1,0 +1,57 @@
+# Fauna Training Configuration for Mouse 6-view Experiment
+#
+# Reproducing Pose Splatter paper's 3D Fauna baseline experiment:
+# - Training: 1 timestep × 6 camera views = 6 images
+# - Using "prescribed data preprocessing pipelines and hyperparameters"
+#
+# Expected outcome (from paper):
+# - Input view: Accurate reconstruction
+# - Novel views: "fail to maintain shape coherence once the mesh is rotated"
+# - But NO mesh collapse (6-view multi-view supervision helps)
+
+hydra:
+  run:
+    dir: .
+  output_subdir: ${checkpoint_dir}
+
+
+defaults:
+  - base_fauna
+  - dataset: mouse_6view_posesplatter
+  - model: fauna_mouse_6view
+
+
+# Dataset settings
+dataset:
+  in_image_size: 256
+  out_image_size: 256
+  batch_size: 6  # All 6 views in one batch
+  train_data_dir: data/fauna/mouse_6view_posesplatter
+  val_data_dir: null
+  test_data_dir: data/fauna/mouse_6view_posesplatter
+  random_shuffle_samples_train: false
+  load_dino_feature: false  # Compute on-the-fly
+  dino_feature_dim: 16
+  random_xflip_train: false  # Keep multi-view consistency
+
+
+# Training settings
+run_train: true
+run_test: true  # Run test after training to save mesh visualizations
+seed: 42
+gpu: 0
+num_iters: 100000  # 100K iterations - reasonable for 6 images
+
+# Checkpoint settings
+checkpoint_dir: results/fauna_mouse_6view_posesplatter
+save_checkpoint_freq: 10000
+keep_num_checkpoint: 5
+resume: true
+
+# Visualization - save mesh/images during training
+save_train_result_freq: 10000  # Save mesh every 10K iterations
+
+# Logging
+use_logger: false  # Disable wandb for now
+log_image_freq: 1000
+log_loss_freq: 100

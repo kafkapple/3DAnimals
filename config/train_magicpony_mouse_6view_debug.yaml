@@ -1,0 +1,48 @@
+# MagicPony Debug for Mouse 6-view (5K iterations)
+
+hydra:
+  run:
+    dir: .
+  output_subdir: ${checkpoint_dir}
+
+
+defaults:
+  - base
+  - dataset: mouse_6view_posesplatter
+  - model: magicpony_mouse_6view
+
+
+# Dataset settings
+dataset:
+  in_image_size: 256
+  out_image_size: 256
+  batch_size: 6
+  train_data_dir: data/fauna/mouse_6view_posesplatter
+  val_data_dir: data/fauna/mouse_6view_posesplatter
+  test_data_dir: data/fauna/mouse_6view_posesplatter
+  random_shuffle_samples_train: false
+  load_dino_feature: false
+  dino_feature_dim: 16
+  random_xflip_train: false
+
+
+# Debug training settings
+run_train: true
+run_test: true  # Run test after training to save mesh visualizations
+seed: 42
+gpu: 0
+num_iters: 5000  # Short debug run
+
+# Checkpoint settings
+checkpoint_dir: results/magicpony_mouse_6view_debug
+save_checkpoint_freq: 1000
+keep_num_checkpoint: 5
+resume: false
+
+# Visualization - save mesh/images during training
+save_train_result_freq: 1000  # Save mesh every 1K iterations for debug
+
+# Logging - more frequent for debug
+use_logger: false
+log_image_freq: 500
+log_loss_freq: 50
