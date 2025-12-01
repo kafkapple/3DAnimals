@@ -48,6 +48,7 @@ run_test: true  # Run test after training to save mesh visualizations
 seed: 42
 gpu: 0
 num_iters: 5000  # Short debug run
+shuffle_dataset_paths: false  # Disable to avoid AttributeError with small dataset
 
 # Checkpoint settings
 checkpoint_dir: results/fauna_mouse_6view_debug
