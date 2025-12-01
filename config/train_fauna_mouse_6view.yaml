@@ -41,6 +41,7 @@ run_test: true  # Run test after training to save mesh visualizations
 seed: 42
 gpu: 0
 num_iters: 100000  # 100K iterations - reasonable for 6 images
+shuffle_dataset_paths: false  # Small dataset, avoid shuffle error
 
 # Checkpoint settings
 checkpoint_dir: results/fauna_mouse_6view_posesplatter
