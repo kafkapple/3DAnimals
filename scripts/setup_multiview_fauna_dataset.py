@@ -137,6 +137,12 @@ def create_fauna_files(
     x0, y0, x1, y1, full_w, full_h = compute_bbox_from_mask(mask_path, padding_ratio=padding_ratio)
 
     if crop_and_resize:
+        # Remove existing symlinks to prevent overwriting original files!
+        if rgb_out.is_symlink():
+            rgb_out.unlink()
+        if mask_out.is_symlink():
+            mask_out.unlink()
+
         # Load images
         rgb_img = Image.open(rgb_path).convert('RGB')
         mask_img = Image.open(mask_path).convert('L')
