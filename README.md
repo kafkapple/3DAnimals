@@ -1,5 +1,25 @@
 # 3D Animals Codebase
 
+## Quick Start: Mouse 6-View Experiment
+
+```bash
+# Step 1: 데이터셋 생성 (crop 전처리 자동 적용)
+python scripts/setup_multiview_fauna_dataset.py \
+    --session_dir /path/to/sam3d_gui/sessions/mouse_batch_XXXXXX \
+    --output_dir data/fauna/mouse_6view_posesplatter \
+    --mode pose_splatter_debug
+
+# Step 2: Debug 학습 (~15분) - 먼저 검증
+python run.py --config-name train_fauna_mouse_6view_debug
+
+# Step 3: 결과 확인
+ls results/fauna_mouse_6view_debug/
+
+# Step 4: Finetune 학습 (~2-3시간)
+python run.py --config-name train_fauna_mouse_6view_finetune
+```
+
+---
 
 https://github.com/user-attachments/assets/c0dbb792-2ce8-424c-98db-8c8e6a3e2f29
 

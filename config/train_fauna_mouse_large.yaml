@@ -31,7 +31,8 @@ resume: true  # Resume from checkpoint if exists
 # Visualization - save mesh/images during training
 save_train_result_freq: 20000  # Save mesh every 20K iterations
 
-# Logging
-use_logger: false
-log_image_freq: 2000
-log_loss_freq: 100
+# Logging - WandB enabled
+use_logger: true
+logger_type: wandb
+log_image_freq: 1000
+log_loss_freq: 50

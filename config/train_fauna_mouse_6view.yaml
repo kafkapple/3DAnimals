@@ -51,7 +51,8 @@ resume: true
 # Visualization - save mesh/images during training
 save_train_result_freq: 10000  # Save mesh every 10K iterations
 
-# Logging
-use_logger: false  # Disable wandb for now
-log_image_freq: 1000
-log_loss_freq: 100
+# Logging - WandB enabled
+use_logger: true
+logger_type: wandb
+log_image_freq: 500
+log_loss_freq: 50

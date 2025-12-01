@@ -58,7 +58,8 @@ resume: false  # Start fresh for debug
 # Visualization - save mesh/images during training
 save_train_result_freq: 1000  # Save mesh every 1K iterations for debug
 
-# Logging - more frequent for debug
-use_logger: false
-log_image_freq: 500
-log_loss_freq: 50
+# Logging - WandB enabled
+use_logger: true
+logger_type: wandb
+log_image_freq: 100  # More frequent for debug
+log_loss_freq: 10
