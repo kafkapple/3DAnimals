@@ -33,7 +33,9 @@ NC='\033[0m' # No Color
 
 # Configuration
 CONDA_ENV="3danimals"
-PROJECT_DIR="/home/joon/dev/3DAnimals"
+# Auto-detect project directory (works on both local and remote machines)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
 # Function to print colored messages
 print_info() {
