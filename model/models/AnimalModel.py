@@ -335,13 +335,14 @@ class AnimalModel:
         # Motion regularizers on sequence data
         if "sequence" in self.dataset.data_type and self.dataset.num_frames > 1:
             # Get batch and frame dimensions from available tensors
+            f = self.dataset.num_frames
             if arti_params is not None:
                 b, f = arti_params.shape[:2]
             elif pose_raw is not None:
-                b = pose_raw.shape[0]
-                f = self.dataset.num_frames
+                # pose_raw shape is [batch*frames, ...], so b = total / frames
+                b = pose_raw.shape[0] // f
             else:
-                b, f = 1, self.dataset.num_frames  # Fallback
+                b = 1  # Fallback
             if self.cfg_loss.deform_smooth_loss_weight > 0 and deformation is not None:
                 losses["deform_smooth_loss"] = self.smooth_loss_fn(expandBF(deformation, b, f))
             if arti_params is not None:
