@@ -50,9 +50,9 @@ cfg_render:
 # 강화된 Loss Configuration
 cfg_loss:
   # Mask losses
-  mask_loss_weight: 50.0          # 낮춤 (급격한 변화 방지)
+  mask_loss_weight: 200 #50.0          # 낮춤 (급격한 변화 방지)
   mask_dt_loss_weight: 0.
-  mask_inv_dt_loss_weight: 500.0  # 낮춤
+  mask_inv_dt_loss_weight: 2000 #500.0  # 낮춤
 
   # RGB loss
   rgb_loss_weight: 1.0
@@ -62,8 +62,8 @@ cfg_loss:
 
   # SDF regularization (핵심! 더 강화)
   sdf_reg_decay_start_iter: 100000   # 매우 늦게 decay 시작
-  sdf_bce_reg_loss_weight: 2.0       # 강화! (collapse 방지)
-  sdf_gradient_reg_loss_weight: 2.0  # 20배 강화
+  sdf_bce_reg_loss_weight: 10.0 #2.0       # 강화! (collapse 방지)
+  sdf_gradient_reg_loss_weight: 10.0 # 2.0  # 20배 강화
 
   # Viewpoint selection
   logit_loss_weight: 0.5          # 낮춤
@@ -84,5 +84,5 @@ cfg_loss:
 
 # 매우 낮은 Learning Rate (최대 안정성)
 cfg_optim_base:
-  lr: 0.0002              # 더 낮춤 (안정성 최우선)
+  lr: 0.00005 #0.0002              # 더 낮춤 (안정성 최우선)
   weight_decay: 0.0001    # 약간의 weight decay
