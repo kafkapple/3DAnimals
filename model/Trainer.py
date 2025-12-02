@@ -44,6 +44,8 @@ class TrainerConfig:
     log_val: bool = True
     fix_log_batch: bool = False
     save_train_result_freq: int = None
+    wandb_project: str = None  # Override wandb project name (default: model.name)
+    wandb_run_name: str = None  # Override wandb run name
 
     disc_train: bool = False
     remake_dataloader_iter: int = -1
@@ -194,7 +196,14 @@ class Trainer:
                     except Exception:
                         self.cfg.dataset.local_dir = self.cfg.dataset.local_dir.replace("/scr-ssd/", "/scr/")
                         os.makedirs(self.cfg.dataset.local_dir, exist_ok=True)
-                self.logger = WandbWriter(project=self.model.name, config=self.cfg, local_dir=self.cfg.dataset.local_dir)
+                # Use custom wandb_project if specified, otherwise use model.name
+                wandb_project = self.wandb_project if self.wandb_project else self.model.name
+                self.logger = WandbWriter(
+                    project=wandb_project,
+                    config=self.cfg,
+                    local_dir=self.cfg.dataset.local_dir,
+                    name=self.wandb_run_name  # Pass run name to wandb
+                )
             else:
                 raise NotImplementedError(f"Unsupported loger: {self.logger}")
         else:

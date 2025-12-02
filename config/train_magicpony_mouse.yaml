@@ -29,4 +29,7 @@ num_iters: 100000
 checkpoint_dir: results/magicpony/mouse
 save_checkpoint_freq: 2000
 resume: true
+use_logger: true
 logger_type: wandb
+wandb_project: MagicPony_mouse
+wandb_run_name: scratch_${now:%Y%m%d_%H%M%S}

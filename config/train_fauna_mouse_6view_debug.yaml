@@ -62,5 +62,7 @@ save_train_result_freq: 1000  # Save mesh every 1K iterations for debug
 # Logging - WandB enabled
 use_logger: true
 logger_type: wandb
+wandb_project: Fauna_mouse
+wandb_run_name: 6view_debug_${now:%Y%m%d_%H%M%S}
 log_image_freq: 100  # More frequent for debug
 log_loss_freq: 10

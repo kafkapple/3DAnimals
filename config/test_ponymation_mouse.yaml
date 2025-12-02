@@ -1,0 +1,50 @@
+# Ponymation Mouse Inference Config
+#
+# Run inference on trained Ponymation mouse model (Stage 2)
+#
+# Usage:
+#   # Using finetuned Stage 2 model
+#   python run.py --config-name test_ponymation_mouse
+#
+#   # Using specific checkpoint
+#   python run.py --config-name test_ponymation_mouse \
+#     checkpoint_dir=results/ponymation/mouse_finetune_stage2 \
+#     checkpoint_name=checkpoint.pth
+
+hydra:
+  run:
+    dir: .
+  output_subdir: ${checkpoint_dir}
+
+
+defaults:
+  - base
+  - dataset: sequence
+  - model: ponymation_mouse
+
+
+dataset:
+  in_image_size: 256
+  out_image_size: 256
+  batch_size: 10
+  num_frames: 1
+  test_data_dir: data/ponymation/mouse/test
+  load_dino_feature: false
+  dino_feature_dim: 16
+
+
+run_train: false
+run_test: true
+
+# Default: finetuned Stage 2 model
+checkpoint_dir: results/ponymation/mouse_finetune_stage2
+checkpoint_name: checkpoint.pth
+
+
+# Visualization settings
+output_dir: results/ponymation/mouse_finetune_stage2/visualization
+render_modes: [input_view, other_views, rotation]
+finetune_texture: false
+finetune_iters: 10
+finetune_lr: 0.001
+evaluate_keypoint: false

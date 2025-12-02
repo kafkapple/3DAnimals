@@ -1,0 +1,49 @@
+# MagicPony Mouse Inference Config
+#
+# Run inference on trained MagicPony mouse model
+#
+# Usage:
+#   # Using finetuned model
+#   python run.py --config-name test_magicpony_mouse
+#
+#   # Using specific checkpoint
+#   python run.py --config-name test_magicpony_mouse \
+#     checkpoint_dir=results/magicpony/mouse_finetune \
+#     checkpoint_name=checkpoint.pth
+
+hydra:
+  run:
+    dir: .
+  output_subdir: ${checkpoint_dir}
+
+
+defaults:
+  - base
+  - dataset: image
+  - model: magicpony_mouse
+
+
+dataset:
+  batch_size: 10
+  test_data_dir: data/magicpony/mouse/test
+  load_dino_feature: false
+  dino_feature_dim: 16
+  num_frames: 1
+
+
+run_train: false
+run_test: true
+
+# Default: finetuned model (change as needed)
+checkpoint_dir: results/magicpony/mouse_finetune
+checkpoint_name: checkpoint.pth
+
+
+# Visualization settings
+output_dir: results/magicpony/mouse_finetune/visualization
+resolution: 256
+render_modes: [input_view, other_views, rotation]
+finetune_texture: false
+finetune_iters: 10
+finetune_lr: 0.001
+evaluate_keypoint: false

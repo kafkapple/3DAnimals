@@ -1,0 +1,80 @@
+# Ponymation Mouse Stage 1 Fine-tuning
+#
+# Stage 1: Articulation learning from MagicPony checkpoint
+# This is the RECOMMENDED way to train Ponymation (not from scratch)
+#
+# Training Flow:
+#   1. MagicPony pretrained horse → MagicPony mouse finetune → Ponymation Stage 1
+#   OR
+#   2. MagicPony pretrained horse → Ponymation Stage 1 (direct)
+#
+# Prerequisites:
+#   Option A (recommended): Use finetuned MagicPony mouse model
+#     - results/magicpony/mouse_finetune/checkpoint.pth
+#   Option B: Use pretrained MagicPony horse directly
+#     - results/magicpony/pretrained_horse/pretrained_horse.pth
+#
+# Usage:
+#   python run.py --config-name finetune_ponymation_mouse_stage1
+
+hydra:
+  run:
+    dir: .
+  output_subdir: ${checkpoint_dir}
+
+
+defaults:
+  - base
+  - dataset: sequence
+  - model: ponymation_mouse
+
+
+dataset:
+  in_image_size: 256
+  out_image_size: 256
+  batch_size: 1  # Stage 1은 메모리 집약적
+  num_frames: 10
+  train_data_dir: data/ponymation/mouse/train
+  val_data_dir: data/ponymation/mouse/test
+  random_shuffle_samples_train: true
+  load_dino_feature: false
+  dino_feature_dim: 16
+
+
+model:
+  enable_render: true
+  cfg_predictor_base:
+    cfg_shape:
+      grid_res_coarse_iter_range: [0, inf]  # 항상 coarse 유지
+  cfg_predictor_instance:
+    enable_motion_vae: false  # Stage 1: VAE 비활성화
+    enable_deform: false
+  cfg_loss:
+    artivel_smooth_loss_weight: 1  # 관절 속도 스무딩
+
+
+run_train: true
+run_test: false
+seed: 42
+gpu: 0
+num_iters: 10000  # Stage 1: 10K iterations
+save_checkpoint_freq: 2000
+keep_num_checkpoint: 3
+
+# CRITICAL: MagicPony checkpoint path
+# Option A: From finetuned MagicPony mouse (recommended if available)
+# checkpoint_path: results/magicpony/mouse_finetune/checkpoint.pth
+# Option B: From pretrained MagicPony horse (fallback)
+checkpoint_path: results/magicpony/pretrained_horse/pretrained_horse.pth
+
+checkpoint_dir: results/ponymation/mouse_finetune_stage1
+resume: true
+load_optim: false  # Don't load optimizer from MagicPony
+
+# Logging
+use_logger: true
+logger_type: wandb
+wandb_project: Ponymation_mouse
+wandb_run_name: stage1_finetune_${now:%Y%m%d_%H%M%S}
+log_image_freq: 200
+log_loss_freq: 20

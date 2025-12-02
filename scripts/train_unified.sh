@@ -1,21 +1,25 @@
 #!/bin/bash
 # Unified Training Script for MagicPony, Ponymation, Fauna
-# Created: 2025-12-02
+# Created: 2025-12-02 (Updated)
 # Purpose: 세 모델(Fauna, MagicPony, Ponymation)을 일관된 방식으로 학습
 #
 # Usage:
-#   ./scripts/train_unified.sh <model> <mode>
+#   ./scripts/train_unified.sh <model> <mode> [training_type]
 #
 # Models:
-#   fauna         - Fauna model (기본)
-#   magicpony     - MagicPony model
-#   ponymation-s1 - Ponymation Stage 1 (관절 학습)
-#   ponymation-s2 - Ponymation Stage 2 (Motion VAE)
+#   fauna              - Fauna model
+#   magicpony          - MagicPony model
+#   ponymation-s1      - Ponymation Stage 1
+#   ponymation-s2      - Ponymation Stage 2
 #
 # Modes:
 #   debug      - 빠른 검증 (2-5K iters, 10-20분)
 #   full       - 전체 학습
 #   background - 백그라운드 학습
+#
+# Training Types:
+#   scratch    - From scratch (default for fauna)
+#   finetune   - From pretrained model (default for magicpony/ponymation)
 
 set -e  # Exit on error
 
@@ -24,6 +28,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # Configuration
@@ -49,6 +54,10 @@ print_header() {
     echo -e "${BLUE}========================================${NC}"
 }
 
+print_section() {
+    echo -e "${CYAN}--- $1 ---${NC}"
+}
+
 # Function to check GPU
 check_gpu() {
     print_info "Checking GPU..."
@@ -59,6 +68,67 @@ check_gpu() {
 
     nvidia-smi --query-gpu=name,memory.total,memory.free --format=csv,noheader
     print_info "✓ GPU check passed!"
+}
+
+# Function to check pretrained model for finetune
+check_pretrained() {
+    local MODEL=$1
+    local TRAINING_TYPE=$2
+
+    if [ "$TRAINING_TYPE" != "finetune" ]; then
+        return 0
+    fi
+
+    print_info "Checking pretrained model for $MODEL..."
+
+    case "$MODEL" in
+        magicpony)
+            PRETRAINED="${PROJECT_DIR}/results/magicpony/pretrained_horse/pretrained_horse.pth"
+            if [ ! -f "$PRETRAINED" ]; then
+                print_error "Pretrained horse model not found: $PRETRAINED"
+                print_info "Download with: cd results/magicpony && bash download_pretrained_magicpony.sh"
+                exit 1
+            fi
+            ;;
+        ponymation-s1)
+            # Check for MagicPony checkpoint (either finetuned or pretrained horse)
+            PRETRAINED_FINETUNED="${PROJECT_DIR}/results/magicpony/mouse_finetune/checkpoint.pth"
+            PRETRAINED_HORSE="${PROJECT_DIR}/results/magicpony/pretrained_horse/pretrained_horse.pth"
+            if [ -f "$PRETRAINED_FINETUNED" ]; then
+                print_info "Using finetuned MagicPony mouse: $PRETRAINED_FINETUNED"
+            elif [ -f "$PRETRAINED_HORSE" ]; then
+                print_info "Using pretrained MagicPony horse: $PRETRAINED_HORSE"
+            else
+                print_error "No MagicPony checkpoint found!"
+                print_info "Either finetune MagicPony first or download pretrained horse."
+                exit 1
+            fi
+            ;;
+        ponymation-s2)
+            # Check for Stage 1 checkpoint
+            STAGE1_FULL="${PROJECT_DIR}/results/ponymation/mouse_finetune_stage1/checkpoint.pth"
+            STAGE1_DEBUG="${PROJECT_DIR}/results/ponymation/mouse_finetune_stage1_debug/checkpoint.pth"
+            if [ -f "$STAGE1_FULL" ]; then
+                print_info "Using Stage 1 checkpoint: $STAGE1_FULL"
+            elif [ -f "$STAGE1_DEBUG" ]; then
+                print_warning "Using Stage 1 DEBUG checkpoint: $STAGE1_DEBUG"
+            else
+                print_error "Stage 1 checkpoint not found!"
+                print_info "Run Stage 1 first: $0 ponymation-s1 full finetune"
+                exit 1
+            fi
+            ;;
+        fauna)
+            PRETRAINED="${PROJECT_DIR}/results/fauna/pretrained_fauna/pretrained_fauna.pth"
+            if [ ! -f "$PRETRAINED" ]; then
+                print_error "Pretrained Fauna model not found: $PRETRAINED"
+                print_info "Download with: cd results/fauna && bash download_pretrained_fauna.sh"
+                exit 1
+            fi
+            ;;
+    esac
+
+    print_info "✓ Pretrained model check passed!"
 }
 
 # Function to check data for each model
@@ -102,33 +172,64 @@ check_data() {
     print_info "✓ Data check passed for $MODEL!"
 }
 
-# Get config name based on model and mode
+# Get config name based on model, mode, and training type
 get_config_name() {
     local MODEL=$1
     local MODE=$2
+    local TRAINING_TYPE=$3
 
     case "$MODEL" in
         fauna)
-            case "$MODE" in
-                debug) echo "train_fauna_mouse_6view_debug" ;;
-                full|background) echo "train_fauna_mouse_large" ;;
-            esac
+            if [ "$TRAINING_TYPE" == "finetune" ]; then
+                case "$MODE" in
+                    debug) echo "train_fauna_mouse_6view_finetune" ;;  # No debug finetune yet
+                    full|background) echo "train_fauna_mouse_large_finetune" ;;
+                esac
+            else
+                case "$MODE" in
+                    debug) echo "train_fauna_mouse_6view_debug" ;;
+                    full|background) echo "train_fauna_mouse_large" ;;
+                esac
+            fi
             ;;
         magicpony)
-            case "$MODE" in
-                debug) echo "train_magicpony_mouse_debug" ;;
-                full|background) echo "train_magicpony_mouse" ;;
-            esac
+            if [ "$TRAINING_TYPE" == "finetune" ]; then
+                case "$MODE" in
+                    debug) echo "finetune_magicpony_mouse_debug" ;;
+                    full|background) echo "finetune_magicpony_mouse" ;;
+                esac
+            else
+                case "$MODE" in
+                    debug) echo "train_magicpony_mouse_debug" ;;
+                    full|background) echo "train_magicpony_mouse" ;;
+                esac
+            fi
             ;;
         ponymation-s1)
-            case "$MODE" in
-                debug) echo "train_ponymation_mouse_stage1_debug" ;;
-                full|background) echo "train_ponymation_mouse_stage1" ;;
-            esac
+            if [ "$TRAINING_TYPE" == "finetune" ]; then
+                case "$MODE" in
+                    debug) echo "finetune_ponymation_mouse_stage1_debug" ;;
+                    full|background) echo "finetune_ponymation_mouse_stage1" ;;
+                esac
+            else
+                case "$MODE" in
+                    debug) echo "train_ponymation_mouse_stage1_debug" ;;
+                    full|background) echo "train_ponymation_mouse_stage1" ;;
+                esac
+            fi
             ;;
         ponymation-s2)
-            # Stage 2 doesn't have debug (requires Stage 1 checkpoint)
-            echo "train_ponymation_mouse_stage2"
+            if [ "$TRAINING_TYPE" == "finetune" ]; then
+                case "$MODE" in
+                    debug) echo "finetune_ponymation_mouse_stage2_debug" ;;
+                    full|background) echo "finetune_ponymation_mouse_stage2" ;;
+                esac
+            else
+                case "$MODE" in
+                    debug) echo "train_ponymation_mouse_stage2" ;;  # No scratch debug
+                    full|background) echo "train_ponymation_mouse_stage2" ;;
+                esac
+            fi
             ;;
         *)
             print_error "Unknown model: $MODEL"
@@ -142,9 +243,12 @@ run_training() {
     local MODEL=$1
     local MODE=$2
     local CONFIG=$3
+    local TRAINING_TYPE=$4
 
-    print_header "Starting $MODEL training ($MODE mode)"
+    print_header "Starting $MODEL training"
     print_info "Config: $CONFIG"
+    print_info "Mode: $MODE"
+    print_info "Type: $TRAINING_TYPE"
 
     cd "$PROJECT_DIR"
 
@@ -166,7 +270,7 @@ run_training() {
             print_info "✓ Full training completed!"
             ;;
         background)
-            LOG_FILE="/tmp/${MODEL}_training_$(date +%Y%m%d_%H%M%S).log"
+            LOG_FILE="/tmp/${MODEL}_${TRAINING_TYPE}_$(date +%Y%m%d_%H%M%S).log"
             print_info "Background mode: 로그 파일 -> $LOG_FILE"
 
             nohup conda run -n "$CONDA_ENV" python run.py --config-name "$CONFIG" > "$LOG_FILE" 2>&1 &
@@ -187,31 +291,43 @@ run_training() {
 show_usage() {
     echo "Unified Training Script for 3DAnimals"
     echo ""
-    echo "Usage: $0 <model> <mode>"
+    echo "Usage: $0 <model> <mode> [training_type]"
     echo ""
     echo "Models:"
-    echo "  fauna         - Fauna model (범용 3D 동물 재구성)"
-    echo "  magicpony     - MagicPony model (단일 이미지 3D 재구성)"
-    echo "  ponymation-s1 - Ponymation Stage 1 (관절 학습)"
-    echo "  ponymation-s2 - Ponymation Stage 2 (Motion VAE)"
+    echo "  fauna              - Fauna model (범용 3D 동물 재구성)"
+    echo "  magicpony          - MagicPony model (단일 이미지 3D 재구성)"
+    echo "  ponymation-s1      - Ponymation Stage 1 (관절 학습)"
+    echo "  ponymation-s2      - Ponymation Stage 2 (Motion VAE)"
     echo ""
     echo "Modes:"
     echo "  debug      - 빠른 검증 (2-5K iters, 10-20분)"
     echo "  full       - 전체 학습 (대화형)"
     echo "  background - 백그라운드 학습 (로그 /tmp)"
     echo ""
-    echo "Examples:"
-    echo "  $0 fauna debug           # Fauna 빠른 테스트"
-    echo "  $0 magicpony debug       # MagicPony 빠른 테스트"
-    echo "  $0 ponymation-s1 debug   # Ponymation Stage 1 테스트"
-    echo "  $0 fauna full            # Fauna 전체 학습"
-    echo "  $0 magicpony background  # MagicPony 백그라운드 학습"
+    echo "Training Types:"
+    echo "  scratch    - From scratch (처음부터 학습)"
+    echo "  finetune   - From pretrained (사전학습 모델에서 시작) [권장]"
     echo ""
-    echo "Training Dependencies:"
-    echo "  Fauna       -> 독립적 (바로 학습 가능)"
-    echo "  MagicPony   -> 독립적 (바로 학습 가능)"
-    echo "  Ponymation Stage 1 -> MagicPony 체크포인트 필요"
-    echo "  Ponymation Stage 2 -> Stage 1 체크포인트 필요"
+    echo "Examples:"
+    echo ""
+    echo "  # From Scratch (처음부터)"
+    echo "  $0 fauna debug scratch           # Fauna scratch 테스트"
+    echo "  $0 magicpony debug scratch       # MagicPony scratch 테스트"
+    echo ""
+    echo "  # Fine-tuning (사전학습에서 시작) [권장]"
+    echo "  $0 magicpony debug finetune      # MagicPony finetune (horse→mouse)"
+    echo "  $0 magicpony full finetune       # MagicPony finetune 전체"
+    echo "  $0 ponymation-s1 debug finetune  # Ponymation S1 finetune"
+    echo "  $0 ponymation-s2 debug finetune  # Ponymation S2 finetune"
+    echo ""
+    echo "Training Flow (Fine-tuning 권장 순서):"
+    echo "  1. MagicPony horse pretrained → MagicPony mouse finetune"
+    echo "  2. MagicPony mouse → Ponymation Stage 1"
+    echo "  3. Ponymation Stage 1 → Ponymation Stage 2"
+    echo ""
+    echo "Prerequisites:"
+    echo "  - Pretrained models: bash results/{model}/download_pretrained_{model}.sh"
+    echo "  - Data conversion:   python scripts/convert_fauna_to_{model}.py ..."
     echo ""
     echo "Data Directories:"
     echo "  Fauna:      data/fauna_mouse/large_scale/mouse_dannce_6view/"
@@ -224,10 +340,23 @@ main() {
     # Parse arguments
     MODEL="${1:-}"
     MODE="${2:-debug}"
+    TRAINING_TYPE="${3:-}"
 
     if [ -z "$MODEL" ]; then
         show_usage
         exit 1
+    fi
+
+    # Set default training type based on model
+    if [ -z "$TRAINING_TYPE" ]; then
+        case "$MODEL" in
+            fauna)
+                TRAINING_TYPE="scratch"  # Fauna default: scratch (pretrained already exists)
+                ;;
+            magicpony|ponymation-s1|ponymation-s2)
+                TRAINING_TYPE="finetune"  # MagicPony/Ponymation default: finetune
+                ;;
+        esac
     fi
 
     # Validate model
@@ -236,8 +365,8 @@ main() {
             ;;
         ponymation)
             print_warning "Ponymation requires 2-stage training:"
-            print_info "  Stage 1: $0 ponymation-s1 $MODE"
-            print_info "  Stage 2: $0 ponymation-s2 $MODE"
+            print_info "  Stage 1: $0 ponymation-s1 $MODE $TRAINING_TYPE"
+            print_info "  Stage 2: $0 ponymation-s2 $MODE $TRAINING_TYPE"
             exit 0
             ;;
         *)
@@ -258,21 +387,42 @@ main() {
             ;;
     esac
 
+    # Validate training type
+    case "$TRAINING_TYPE" in
+        scratch|finetune)
+            ;;
+        *)
+            print_error "Unknown training type: $TRAINING_TYPE"
+            show_usage
+            exit 1
+            ;;
+    esac
+
     print_header "3DAnimals Unified Training"
     print_info "Model: $MODEL"
     print_info "Mode: $MODE"
+    print_info "Type: $TRAINING_TYPE"
     echo ""
 
     # Check prerequisites
     check_gpu
     check_data "$MODEL"
+    check_pretrained "$MODEL" "$TRAINING_TYPE"
     echo ""
 
     # Get config name
-    CONFIG=$(get_config_name "$MODEL" "$MODE")
+    CONFIG=$(get_config_name "$MODEL" "$MODE" "$TRAINING_TYPE")
+
+    # Verify config exists
+    CONFIG_FILE="${PROJECT_DIR}/config/${CONFIG}.yaml"
+    if [ ! -f "$CONFIG_FILE" ]; then
+        print_error "Config file not found: $CONFIG_FILE"
+        exit 1
+    fi
+    print_info "Config file: $CONFIG_FILE"
 
     # Run training
-    run_training "$MODEL" "$MODE" "$CONFIG"
+    run_training "$MODEL" "$MODE" "$CONFIG" "$TRAINING_TYPE"
 }
 
 # Run main

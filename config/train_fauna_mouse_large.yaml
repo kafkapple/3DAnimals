@@ -35,5 +35,7 @@ save_train_result_freq: 20000  # Save mesh every 20K iterations
 # Logging - WandB enabled
 use_logger: true
 logger_type: wandb
+wandb_project: Fauna_mouse
+wandb_run_name: large_scratch_${now:%Y%m%d_%H%M%S}
 log_image_freq: 1000
 log_loss_freq: 50

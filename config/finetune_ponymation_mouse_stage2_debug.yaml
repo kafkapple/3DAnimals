@@ -1,11 +1,12 @@
-# Ponymation Mouse Stage 2 Training
-# Stage 2: Motion VAE 학습 (Stage 1 체크포인트에서 시작)
+# Ponymation Mouse Stage 2 Fine-tuning Debug Mode
 #
-# Usage:
-#   python run.py --config-name train_ponymation_mouse_stage2
+# Quick validation of Stage 2 Motion VAE training (~15-20 minutes)
 #
 # Prerequisites:
-#   - Stage 1 체크포인트 필요 (results/ponymation/mouse_stage1/ckpt-*.pth)
+#   - Stage 1 checkpoint (or use Stage 1 debug checkpoint for quick test)
+#
+# Usage:
+#   python run.py --config-name finetune_ponymation_mouse_stage2_debug
 
 hydra:
   run:
@@ -22,7 +23,7 @@ defaults:
 dataset:
   in_image_size: 256
   out_image_size: 256
-  batch_size: 4  # Stage 2: 더 큰 배치 (메모리에 따라 조정)
+  batch_size: 2  # Debug: 작은 배치
   num_frames: 10
   train_data_dir: data/ponymation/mouse/train
   val_data_dir: data/ponymation/mouse/test
@@ -32,15 +33,14 @@ dataset:
 
 
 model:
-  enable_render: false  # Stage 2: 렌더링 비활성화 (속도 향상)
+  enable_render: false
   cfg_predictor_base:
     cfg_shape:
       grid_res_coarse_iter_range: [0, inf]
   cfg_predictor_instance:
-    enable_motion_vae: true  # VAE 활성화
+    enable_motion_vae: true
     enable_deform: true
   cfg_loss:
-    # Visual losses 비활성화
     mask_loss_weight: 0.
     mask_dt_loss_weight: 0.
     mask_inv_dt_loss_weight: 0.
@@ -52,23 +52,27 @@ model:
     arti_reg_loss_weight: 0.
     deform_reg_loss_weight: 0.
     artivel_smooth_loss_weight: 0.
-    # VAE losses 활성화
     arti_recon_loss_weight: 100.0
     kld_loss_weight: 0.001
 
 
 run_train: true
 run_test: false
-seed: 0
+seed: 42
 gpu: 0
-num_iters: 100000  # 마우스용 축소 (500K -> 100K)
-save_checkpoint_freq: 5000
-checkpoint_dir: results/ponymation/mouse_stage2
-# checkpoint_path: results/ponymation/mouse_stage1/ckpt-10000.pth  # Stage 1에서 시작 (주석 해제 필요)
+num_iters: 3000  # Debug: 3K iterations
+save_checkpoint_freq: 1000
+log_image_freq: 100
+log_loss_freq: 20
+
+# Stage 1 checkpoint (use debug checkpoint if available)
+checkpoint_path: results/ponymation/mouse_finetune_stage1_debug/checkpoint.pth
+checkpoint_dir: results/ponymation/mouse_finetune_stage2_debug
 resume: true
 load_optim: false
+
 use_logger: true
 logger_type: wandb
 wandb_project: Ponymation_mouse
-wandb_run_name: stage2_scratch_${now:%Y%m%d_%H%M%S}
-mixed_precision: fp16  # 메모리 절약
+wandb_run_name: stage2_finetune_debug_${now:%Y%m%d_%H%M%S}
+mixed_precision: fp16

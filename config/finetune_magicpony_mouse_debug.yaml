@@ -1,0 +1,55 @@
+# MagicPony Mouse Fine-tuning Debug Mode
+#
+# Quick validation of fine-tuning from pretrained horse model
+# ~15-20 minutes for 5K iterations
+#
+# Prerequisites:
+#   - Pretrained horse model at results/magicpony/pretrained_horse/pretrained_horse.pth
+#   - Mouse data at data/magicpony/mouse/
+#
+# Usage:
+#   python run.py --config-name finetune_magicpony_mouse_debug
+
+hydra:
+  run:
+    dir: .
+  output_subdir: ${checkpoint_dir}
+
+
+defaults:
+  - base
+  - dataset: image
+  - model: magicpony_mouse
+
+
+dataset:
+  in_image_size: 256
+  out_image_size: 256
+  batch_size: 2  # Debug: 작은 배치
+  train_data_dir: data/magicpony/mouse/train
+  val_data_dir: data/magicpony/mouse/val
+  random_shuffle_samples_train: true
+  load_dino_feature: false
+  dino_feature_dim: 16
+
+
+run_train: true
+run_test: false
+seed: 42
+gpu: 0
+num_iters: 5000  # Debug: 5K iterations
+save_checkpoint_freq: 1000
+log_image_freq: 100
+log_loss_freq: 20
+
+# Pretrained horse model path
+checkpoint_dir: results/magicpony/mouse_finetune_debug
+checkpoint_path: results/magicpony/pretrained_horse/pretrained_horse.pth
+resume: true
+load_optim: false
+
+# Logging
+use_logger: true
+logger_type: wandb
+wandb_project: MagicPony_mouse
+wandb_run_name: finetune_debug_${now:%Y%m%d_%H%M%S}

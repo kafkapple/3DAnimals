@@ -48,5 +48,7 @@ save_train_result_freq: 5000  # Save mesh every 5K iterations
 # Logging - WandB enabled
 use_logger: true
 logger_type: wandb
+wandb_project: Fauna_mouse
+wandb_run_name: 6view_finetune_${now:%Y%m%d_%H%M%S}
 log_image_freq: 500
 log_loss_freq: 50

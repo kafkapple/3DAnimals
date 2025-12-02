@@ -181,8 +181,10 @@ def estimate_bones(seq_shape, n_body_bones, resample=False, n_legs=4, n_leg_bone
                     # find a point with the lowest y
                     quadrant_points = seq_shape[b, f][quadrant[b, f]]
                     if len(quadrant_points.view(-1)) < 1:
-                        import pdb; pdb.set_trace()
-                    
+                        # No points in quadrant - use center as fallback
+                        print(f"[WARNING] No points in quadrant at batch {b}, frame {f}. Using fallback.")
+                        quadrant_points = seq_shape[b, f].mean(dim=0, keepdim=True)
+
                     idx = torch.argmin(quadrant_points[:, 1])  ## lowest y
                     foot = quadrant_points[idx]
 

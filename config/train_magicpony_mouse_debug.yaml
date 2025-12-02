@@ -30,4 +30,7 @@ save_checkpoint_freq: 1000
 log_image_freq: 100
 checkpoint_dir: results/magicpony/mouse_debug
 resume: false
-use_logger: false
+use_logger: true
+logger_type: wandb
+wandb_project: MagicPony_mouse
+wandb_run_name: scratch_debug_${now:%Y%m%d_%H%M%S}

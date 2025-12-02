@@ -54,4 +54,7 @@ checkpoint_dir: results/ponymation/mouse_stage1
 # checkpoint_path: results/magicpony/mouse/checkpoint.pth  # MagicPony에서 시작 (주석 해제 필요)
 resume: true
 load_optim: false
-use_logger: false
+use_logger: true
+logger_type: wandb
+wandb_project: Ponymation_mouse
+wandb_run_name: stage1_scratch_${now:%Y%m%d_%H%M%S}

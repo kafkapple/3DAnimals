@@ -1,8 +1,13 @@
-# Ponymation Mouse Stage 1 Debug Training
-# 빠른 검증용 (2K iterations)
+# Ponymation Mouse Stage 1 Fine-tuning Debug Mode
+#
+# Quick validation of Stage 1 fine-tuning (~10-15 minutes)
+#
+# Prerequisites:
+#   - MagicPony checkpoint (horse pretrained or mouse finetuned)
+#   - Ponymation mouse data at data/ponymation/mouse/
 #
 # Usage:
-#   python run.py --config-name train_ponymation_mouse_stage1_debug
+#   python run.py --config-name finetune_ponymation_mouse_stage1_debug
 
 hydra:
   run:
@@ -42,14 +47,20 @@ model:
 
 run_train: true
 run_test: false
-seed: 0
+seed: 42
 gpu: 0
-num_iters: 2000
+num_iters: 2000  # Debug: 2K iterations
 save_checkpoint_freq: 500
 log_image_freq: 100
-checkpoint_dir: results/ponymation/mouse_stage1_debug
-resume: false
+log_loss_freq: 20
+
+# MagicPony checkpoint
+checkpoint_path: results/magicpony/pretrained_horse/pretrained_horse.pth
+checkpoint_dir: results/ponymation/mouse_finetune_stage1_debug
+resume: true
+load_optim: false
+
 use_logger: true
 logger_type: wandb
 wandb_project: Ponymation_mouse
-wandb_run_name: stage1_scratch_debug_${now:%Y%m%d_%H%M%S}
+wandb_run_name: stage1_finetune_debug_${now:%Y%m%d_%H%M%S}

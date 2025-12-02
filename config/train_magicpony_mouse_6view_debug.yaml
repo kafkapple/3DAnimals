@@ -43,6 +43,9 @@ resume: false
 save_train_result_freq: 1000  # Save mesh every 1K iterations for debug
 
 # Logging - more frequent for debug
-use_logger: false
+use_logger: true
+logger_type: wandb
+wandb_project: MagicPony_mouse_6view
+wandb_run_name: scratch_debug_${now:%Y%m%d_%H%M%S}
 log_image_freq: 500
 log_loss_freq: 50
