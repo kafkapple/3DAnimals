@@ -274,7 +274,8 @@ run_training() {
     local EXTRA_ARGS=""
     if [ -n "$STAGE1_CHECKPOINT" ]; then
         print_info "Stage 1 checkpoint: $STAGE1_CHECKPOINT"
-        EXTRA_ARGS="checkpoint_path=$STAGE1_CHECKPOINT"
+        # Use + prefix to add new key to Hydra config
+        EXTRA_ARGS="+checkpoint_path=$STAGE1_CHECKPOINT"
     fi
 
     case "$MODE" in
