@@ -13,18 +13,18 @@ defaults:
 dataset:
   in_image_size: 256
   out_image_size: 256
-  batch_size: 5
+  batch_size: 2  # 메모리 최적화: 5 -> 2
   train_data_dir: data/magicpony/mouse/train
   val_data_dir: data/magicpony/mouse/val
   random_shuffle_samples_train: true
-  load_dino_feature: true
+  load_dino_feature: false  # DINO features not pre-extracted
   dino_feature_dim: 16
 
 
 run_train: true
 run_test: false
 seed: 0
-gpu: 1
+gpu: 0
 num_iters: 5000
 save_checkpoint_freq: 1000
 log_image_freq: 100

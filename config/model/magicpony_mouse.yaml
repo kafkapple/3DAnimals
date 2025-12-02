@@ -6,13 +6,14 @@ defaults:
 
 name: MagicPony
 
-# Shape network - 더 보수적인 설정
+# Shape network - 더 보수적인 설정 (메모리 최적화)
 cfg_predictor_base:
   cfg_shape:
-    grid_res: 128
+    grid_res: 64  # 128 -> 64 (메모리 절약)
     grid_res_coarse_iter_range: [0, 50000]  # 더 오래 coarse 유지
-    grid_res_coarse: 64
+    grid_res_coarse: 32  # 64 -> 32
     jitter_grid: 0.02  # 더 작게 (안정성)
+    spatial_scale: 5.0  # 마우스 크기에 맞춤
 
 # Articulation/Deformation 늦게 시작
 cfg_predictor_instance:

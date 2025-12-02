@@ -1,0 +1,71 @@
+# Ponymation Mouse Stage 2 Training
+# Stage 2: Motion VAE 학습 (Stage 1 체크포인트에서 시작)
+#
+# Usage:
+#   python run.py --config-name train_ponymation_mouse_stage2
+#
+# Prerequisites:
+#   - Stage 1 체크포인트 필요 (results/ponymation/mouse_stage1/ckpt-*.pth)
+
+hydra:
+  run:
+    dir: .
+  output_subdir: ${checkpoint_dir}
+
+
+defaults:
+  - base
+  - dataset: sequence
+  - model: ponymation_mouse
+
+
+dataset:
+  in_image_size: 256
+  out_image_size: 256
+  batch_size: 4  # Stage 2: 더 큰 배치 (메모리에 따라 조정)
+  num_frames: 10
+  train_data_dir: data/ponymation/mouse/train
+  val_data_dir: data/ponymation/mouse/test
+  random_shuffle_samples_train: true
+  load_dino_feature: false
+  dino_feature_dim: 16
+
+
+model:
+  enable_render: false  # Stage 2: 렌더링 비활성화 (속도 향상)
+  cfg_predictor_base:
+    cfg_shape:
+      grid_res_coarse_iter_range: [0, inf]
+  cfg_predictor_instance:
+    enable_motion_vae: true  # VAE 활성화
+    enable_deform: true
+  cfg_loss:
+    # Visual losses 비활성화
+    mask_loss_weight: 0.
+    mask_dt_loss_weight: 0.
+    mask_inv_dt_loss_weight: 0.
+    rgb_loss_weight: 0.
+    dino_feat_im_loss_weight: 0.
+    logit_loss_weight: 0.
+    sdf_bce_reg_loss_weight: 0.
+    sdf_gradient_reg_loss_weight: 0.
+    arti_reg_loss_weight: 0.
+    deform_reg_loss_weight: 0.
+    artivel_smooth_loss_weight: 0.
+    # VAE losses 활성화
+    arti_recon_loss_weight: 100.0
+    kld_loss_weight: 0.001
+
+
+run_train: true
+run_test: false
+seed: 0
+gpu: 0
+num_iters: 100000  # 마우스용 축소 (500K -> 100K)
+save_checkpoint_freq: 5000
+checkpoint_dir: results/ponymation/mouse_stage2
+# checkpoint_path: results/ponymation/mouse_stage1/ckpt-10000.pth  # Stage 1에서 시작 (주석 해제 필요)
+resume: true
+load_optim: false
+logger_type: wandb
+mixed_precision: fp16  # 메모리 절약
