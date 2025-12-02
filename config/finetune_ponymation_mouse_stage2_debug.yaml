@@ -3,10 +3,14 @@
 # Quick validation of Stage 2 Motion VAE training (~15-20 minutes)
 #
 # Prerequisites:
-#   - Stage 1 checkpoint (or use Stage 1 debug checkpoint for quick test)
+#   - Stage 1 checkpoint at results/ponymation/mouse_finetune_stage1_debug/
+#   - Run Stage 1 first: ./scripts/train_unified.sh ponymation-s1 debug finetune
 #
 # Usage:
 #   python run.py --config-name finetune_ponymation_mouse_stage2_debug
+#
+# Note: checkpoint_path is auto-detected by train_unified.sh from Stage 1 directory
+#       Use STAGE1_CHECKPOINT env var or override via command line if needed
 
 hydra:
   run:
@@ -17,7 +21,7 @@ hydra:
 defaults:
   - base
   - dataset: sequence
-  - model: ponymation_mouse
+  - model: ponymation  # Use original ponymation model (not ponymation_mouse)
 
 
 dataset:
@@ -65,10 +69,12 @@ save_checkpoint_freq: 1000
 log_image_freq: 100
 log_loss_freq: 20
 
-# Stage 1 checkpoint (use debug checkpoint if available)
-checkpoint_path: results/ponymation/mouse_finetune_stage1_debug/checkpoint.pth
+# Stage 2 saves results here
 checkpoint_dir: results/ponymation/mouse_finetune_stage2_debug
+# checkpoint_path: set via train_unified.sh or command line override
+# e.g., checkpoint_path=results/ponymation/mouse_finetune_stage1_debug/checkpoint2000.pth
 resume: true
+reset_epoch: true  # Reset iteration counter for Stage 2
 load_optim: false
 
 use_logger: true

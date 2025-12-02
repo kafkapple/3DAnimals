@@ -20,7 +20,7 @@ hydra:
 defaults:
   - base
   - dataset: sequence
-  - model: ponymation_mouse
+  - model: ponymation  # Use original ponymation model (not ponymation_mouse)
 
 
 dataset:
@@ -69,10 +69,12 @@ num_iters: 100000  # Stage 2: 100K (마우스용 축소)
 save_checkpoint_freq: 5000
 keep_num_checkpoint: 3
 
-# CRITICAL: Stage 1 checkpoint path
-checkpoint_path: results/ponymation/mouse_finetune_stage1/checkpoint.pth
+# Stage 2 saves results here
 checkpoint_dir: results/ponymation/mouse_finetune_stage2
+# checkpoint_path: set via train_unified.sh or command line override
+# e.g., checkpoint_path=results/ponymation/mouse_finetune_stage1/checkpoint.pth
 resume: true
+reset_epoch: true  # Reset iteration counter for Stage 2
 load_optim: false
 
 # Logging

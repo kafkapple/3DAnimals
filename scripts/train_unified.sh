@@ -105,18 +105,34 @@ check_pretrained() {
             fi
             ;;
         ponymation-s2)
-            # Check for Stage 1 checkpoint
-            STAGE1_FULL="${PROJECT_DIR}/results/ponymation/mouse_finetune_stage1/checkpoint.pth"
-            STAGE1_DEBUG="${PROJECT_DIR}/results/ponymation/mouse_finetune_stage1_debug/checkpoint.pth"
-            if [ -f "$STAGE1_FULL" ]; then
-                print_info "Using Stage 1 checkpoint: $STAGE1_FULL"
-            elif [ -f "$STAGE1_DEBUG" ]; then
-                print_warning "Using Stage 1 DEBUG checkpoint: $STAGE1_DEBUG"
+            # Check for Stage 1 checkpoint (auto-detect latest checkpoint*.pth)
+            STAGE1_FULL_DIR="${PROJECT_DIR}/results/ponymation/mouse_finetune_stage1"
+            STAGE1_DEBUG_DIR="${PROJECT_DIR}/results/ponymation/mouse_finetune_stage1_debug"
+
+            # Find latest checkpoint in directory
+            find_latest_checkpoint() {
+                local dir=$1
+                ls -t "$dir"/checkpoint*.pth 2>/dev/null | head -1
+            }
+
+            STAGE1_CKPT=$(find_latest_checkpoint "$STAGE1_FULL_DIR")
+            if [ -z "$STAGE1_CKPT" ]; then
+                STAGE1_CKPT=$(find_latest_checkpoint "$STAGE1_DEBUG_DIR")
+                if [ -n "$STAGE1_CKPT" ]; then
+                    print_warning "Using Stage 1 DEBUG checkpoint: $STAGE1_CKPT"
+                fi
             else
+                print_info "Using Stage 1 checkpoint: $STAGE1_CKPT"
+            fi
+
+            if [ -z "$STAGE1_CKPT" ]; then
                 print_error "Stage 1 checkpoint not found!"
-                print_info "Run Stage 1 first: $0 ponymation-s1 full finetune"
+                print_info "Run Stage 1 first: $0 ponymation-s1 debug finetune"
                 exit 1
             fi
+
+            # Export for use in run command
+            export STAGE1_CHECKPOINT="$STAGE1_CKPT"
             ;;
         fauna)
             PRETRAINED="${PROJECT_DIR}/results/fauna/pretrained_fauna/pretrained_fauna.pth"
@@ -252,10 +268,21 @@ run_training() {
 
     cd "$PROJECT_DIR"
 
+    # Build extra args for Stage 2 (checkpoint_path override)
+    local EXTRA_ARGS=""
+    if [ -n "$STAGE1_CHECKPOINT" ]; then
+        print_info "Stage 1 checkpoint: $STAGE1_CHECKPOINT"
+        EXTRA_ARGS="checkpoint_path=$STAGE1_CHECKPOINT"
+    fi
+
     case "$MODE" in
         debug)
             print_info "Debug mode: 빠른 검증 (10-20분)"
-            conda run -n "$CONDA_ENV" python run.py --config-name "$CONFIG"
+            if [ -n "$EXTRA_ARGS" ]; then
+                conda run -n "$CONDA_ENV" python run.py --config-name "$CONFIG" $EXTRA_ARGS
+            else
+                conda run -n "$CONDA_ENV" python run.py --config-name "$CONFIG"
+            fi
             print_info "✓ Debug training completed!"
             ;;
         full)
@@ -266,14 +293,22 @@ run_training() {
                 print_info "Training cancelled."
                 exit 0
             fi
-            conda run -n "$CONDA_ENV" python run.py --config-name "$CONFIG"
+            if [ -n "$EXTRA_ARGS" ]; then
+                conda run -n "$CONDA_ENV" python run.py --config-name "$CONFIG" $EXTRA_ARGS
+            else
+                conda run -n "$CONDA_ENV" python run.py --config-name "$CONFIG"
+            fi
             print_info "✓ Full training completed!"
             ;;
         background)
             LOG_FILE="/tmp/${MODEL}_${TRAINING_TYPE}_$(date +%Y%m%d_%H%M%S).log"
             print_info "Background mode: 로그 파일 -> $LOG_FILE"
 
-            nohup conda run -n "$CONDA_ENV" python run.py --config-name "$CONFIG" > "$LOG_FILE" 2>&1 &
+            if [ -n "$EXTRA_ARGS" ]; then
+                nohup conda run -n "$CONDA_ENV" python run.py --config-name "$CONFIG" $EXTRA_ARGS > "$LOG_FILE" 2>&1 &
+            else
+                nohup conda run -n "$CONDA_ENV" python run.py --config-name "$CONFIG" > "$LOG_FILE" 2>&1 &
+            fi
 
             PID=$!
             print_info "✓ Training started in background!"
