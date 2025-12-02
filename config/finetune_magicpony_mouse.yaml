@@ -58,6 +58,7 @@ keep_num_checkpoint: 3
 checkpoint_dir: results/magicpony/mouse_finetune
 checkpoint_path: results/magicpony/pretrained_horse/pretrained_horse.pth
 resume: true
+reset_epoch: true  # Reset iteration counter (pretrained has 140K iters)
 load_optim: false  # Don't load optimizer state from horse
 
 # Logging

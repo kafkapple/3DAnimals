@@ -3,12 +3,17 @@
 # Run inference on trained MagicPony mouse model
 #
 # Usage:
-#   # Using finetuned model
+#   # Using pretrained horse model (default - for comparison)
 #   python run.py --config-name test_magicpony_mouse
 #
-#   # Using specific checkpoint
+#   # Using trained mouse model (when available)
 #   python run.py --config-name test_magicpony_mouse \
 #     checkpoint_dir=results/magicpony/mouse_finetune \
+#     checkpoint_name=checkpoint.pth
+#
+#   # Using debug checkpoint
+#   python run.py --config-name test_magicpony_mouse \
+#     checkpoint_dir=results/magicpony/mouse_debug \
 #     checkpoint_name=checkpoint.pth
 
 hydra:
@@ -25,7 +30,7 @@ defaults:
 
 dataset:
   batch_size: 10
-  test_data_dir: data/magicpony/mouse/test
+  test_data_dir: data/magicpony/mouse/val
   load_dino_feature: false
   dino_feature_dim: 16
   num_frames: 1
@@ -34,13 +39,20 @@ dataset:
 run_train: false
 run_test: true
 
-# Default: finetuned model (change as needed)
-checkpoint_dir: results/magicpony/mouse_finetune
-checkpoint_name: checkpoint.pth
+# Wandb logging
+use_logger: true
+logger_type: wandb
+wandb_project: MagicPony_mouse
+wandb_run_name: test_${now:%Y%m%d_%H%M%S}
+
+# Default: pretrained horse model (for comparison/baseline)
+# Change to mouse checkpoint when trained
+checkpoint_dir: results/magicpony/pretrained_horse
+checkpoint_name: pretrained_horse.pth
 
 
 # Visualization settings
-output_dir: results/magicpony/mouse_finetune/visualization
+output_dir: results/magicpony/mouse_visualization
 resolution: 256
 render_modes: [input_view, other_views, rotation]
 finetune_texture: false

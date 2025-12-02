@@ -143,11 +143,33 @@ class Trainer:
             self.test_result_dir = osp.join(self.checkpoint_dir, f'test_results_{self.checkpoint_name}'.replace('.pth', ''))
         print(f"Saving testing results to {self.test_result_dir}")
 
+        # Initialize wandb logger for test visualization
+        logger = None
+        if self.accelerator.is_main_process and self.use_logger and self.logger_type == "wandb":
+            from .utils.wandb_writer import WandbWriter
+            wandb_project = self.wandb_project if self.wandb_project else self.model.name
+            logger = WandbWriter(
+                project=wandb_project,
+                config=self.cfg,
+                local_dir=self.cfg.dataset.local_dir if self.cfg.dataset.local_dir else None,
+                name=self.wandb_run_name
+            )
+            print(f"Wandb logging enabled: project={wandb_project}, run={self.wandb_run_name}")
+
         with torch.no_grad():
             for iteration, batch in tqdm(enumerate(self.test_loader), total=len(self.test_loader)):
                 batch = misc.validate_all_to_device(batch, device=self.accelerator.device)
-                m = self.model.forward(batch, epoch=epoch, total_iter=self.total_iter, save_results=True, save_dir=self.test_result_dir, is_training=False)
-                print(f"T{self.total_iter:06}")
+                # Pass logger to forward for image logging (mesh, normal, mask, etc.)
+                m = self.model.forward(
+                    batch, epoch=epoch, total_iter=iteration,
+                    logger=logger, logger_prefix='test_',
+                    save_results=True, save_dir=self.test_result_dir, is_training=False
+                )
+                print(f"Test sample {iteration+1}/{len(self.test_loader)}")
+
+        # Finish wandb logger
+        if logger is not None:
+            logger.finish()
 
     def train(self):
         """Perform training."""

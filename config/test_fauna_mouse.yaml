@@ -1,0 +1,65 @@
+# Fauna Mouse Inference Config
+#
+# Run inference on trained Fauna mouse model
+#
+# Usage:
+#   # Using debug checkpoint (default)
+#   python run.py --config-name test_fauna_mouse
+#
+#   # Using finetune checkpoint
+#   python run.py --config-name test_fauna_mouse \
+#     checkpoint_dir=results/fauna_mouse_large_finetune \
+#     checkpoint_name=checkpoint.pth
+#
+#   # Using pretrained fauna (for comparison)
+#   python run.py --config-name test_fauna_mouse \
+#     checkpoint_dir=results/fauna/pretrained_fauna \
+#     checkpoint_name=pretrained_fauna.pth
+
+hydra:
+  run:
+    dir: .
+  output_subdir: ${checkpoint_dir}
+
+
+defaults:
+  - base_fauna
+  - dataset: sequence
+  - model: fauna_mouse_6view
+
+
+dataset:
+  in_image_size: 256
+  out_image_size: 256
+  batch_size: 1
+  num_frames: 1
+  test_data_dir: data/fauna_mouse/large_scale/mouse_dannce_6view/train  # Use train data for visualization
+  random_shuffle_samples_train: false
+  load_dino_feature: true
+  dino_feature_dim: 16
+
+
+run_train: false
+run_test: true
+seed: 0
+gpu: 0
+load_optim: false
+
+# Wandb logging
+use_logger: true
+logger_type: wandb
+wandb_project: Fauna_mouse
+wandb_run_name: test_${now:%Y%m%d_%H%M%S}
+
+# Default: debug checkpoint (change as needed)
+checkpoint_dir: results/fauna_mouse_6view_debug
+checkpoint_name: checkpoint1000.pth
+
+
+# Visualization settings
+output_dir: results/fauna_mouse_6view_debug/visualization
+render_modes: [input_view, other_views, rotation]
+finetune_texture: false
+finetune_iters: 10
+finetune_lr: 0.001
+evaluate_keypoint: false

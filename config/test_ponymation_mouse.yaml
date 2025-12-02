@@ -3,12 +3,17 @@
 # Run inference on trained Ponymation mouse model (Stage 2)
 #
 # Usage:
-#   # Using finetuned Stage 2 model
+#   # Using pretrained horse Stage 2 (default - for comparison)
 #   python run.py --config-name test_ponymation_mouse
 #
-#   # Using specific checkpoint
+#   # Using trained Stage 2 model (when available)
 #   python run.py --config-name test_ponymation_mouse \
 #     checkpoint_dir=results/ponymation/mouse_finetune_stage2 \
+#     checkpoint_name=checkpoint.pth
+#
+#   # Using Stage 1 debug checkpoint
+#   python run.py --config-name test_ponymation_mouse \
+#     checkpoint_dir=results/ponymation/mouse_finetune_stage1_debug \
 #     checkpoint_name=checkpoint.pth
 
 hydra:
@@ -36,13 +41,20 @@ dataset:
 run_train: false
 run_test: true
 
-# Default: finetuned Stage 2 model
-checkpoint_dir: results/ponymation/mouse_finetune_stage2
-checkpoint_name: checkpoint.pth
+# Wandb logging
+use_logger: true
+logger_type: wandb
+wandb_project: Ponymation_mouse
+wandb_run_name: test_${now:%Y%m%d_%H%M%S}
+
+# Default: pretrained horse Stage 2 (for comparison/baseline)
+# Change to mouse checkpoint when trained
+checkpoint_dir: results/ponymation/pretrained_horse
+checkpoint_name: pretrained_horse_stage2.pth
 
 
 # Visualization settings
-output_dir: results/ponymation/mouse_finetune_stage2/visualization
+output_dir: results/ponymation/mouse_visualization
 render_modes: [input_view, other_views, rotation]
 finetune_texture: false
 finetune_iters: 10

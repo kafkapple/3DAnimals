@@ -46,6 +46,7 @@ log_loss_freq: 20
 checkpoint_dir: results/magicpony/mouse_finetune_debug
 checkpoint_path: results/magicpony/pretrained_horse/pretrained_horse.pth
 resume: true
+reset_epoch: true  # Reset iteration counter (pretrained has 140K iters)
 load_optim: false
 
 # Logging
