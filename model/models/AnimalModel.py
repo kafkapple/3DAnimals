@@ -514,7 +514,9 @@ class AnimalModel:
             total_loss += loss * loss_weight
         self.total_loss += total_loss  # reset to 0 in backward step
 
-        if torch.isnan(self.total_loss):
+        # Check for NaN in loss (handle both Tensor and float)
+        is_nan = torch.isnan(self.total_loss) if torch.is_tensor(self.total_loss) else (self.total_loss != self.total_loss)
+        if is_nan:
             print("NaN in loss...")
             import pdb; pdb.set_trace()
 
