@@ -1,0 +1,56 @@
+# Ponymation Mouse Configuration
+# 마우스용 최적화된 Ponymation 모델 설정
+# MagicPony mouse 설정을 기반으로 조정
+
+defaults:
+  - ponymation
+
+name: Ponymation
+
+# Rendering - 마우스 크기에 맞춤
+cfg_render:
+  spatial_scale: 5.0  # 마우스용 축소 (7 -> 5)
+
+# Base predictor - 안정적인 형상 학습
+cfg_predictor_base:
+  cfg_shape:
+    grid_res: 128  # 마우스용 축소 (256 -> 128)
+    grid_res_coarse_iter_range: [0, 50000]
+    grid_res_coarse: 64
+    spatial_scale: ${...cfg_render.spatial_scale}
+    jitter_grid: 0.02  # 더 작게 (안정성)
+
+# Instance predictor - 마우스에 맞게 조정
+cfg_predictor_instance:
+  spatial_scale: ${..cfg_render.spatial_scale}
+
+  cfg_articulation:
+    articulation_iter_range: [10000, inf]
+    num_body_bones: 6  # 마우스용 축소 (8 -> 6)
+    num_legs: 4
+    num_leg_bones: 3
+    attach_legs_to_body_iter_range: [40000, inf]
+    legs_to_body_joint_indices: [1, 5, 5, 1]  # 마우스용 조정
+
+  cfg_deform:
+    deform_iter_range: [100000, inf]  # 더 늦게 활성화
+    force_avg_deform: true
+
+# Loss - 안정성 강화
+cfg_loss:
+  mask_loss_weight: 50.0
+  mask_inv_dt_loss_weight: 500.0
+  sdf_reg_decay_start_iter: 50000
+  sdf_bce_reg_loss_weight: 5.0
+  sdf_gradient_reg_loss_weight: 5.0
+  dino_feat_im_loss_weight: 5.0
+  logit_loss_weight: 0.5
+  arti_reg_loss_weight: 0.2
+  deform_reg_loss_weight: 10.0
+
+# Optimizer - 낮은 learning rate
+cfg_optim_base:
+  lr: 0.00005
+
+cfg_optim_instance:
+  lr: 0.00005
