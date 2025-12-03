@@ -191,13 +191,14 @@ class AnimalModel:
         self.optimizerInstance.zero_grad()
         self.optimizerBase.zero_grad()
 
-        # Ensure total_loss is a Tensor (can be float 0.0 if no losses computed)
-        if not torch.is_tensor(self.total_loss):
-            self.total_loss = torch.tensor(self.total_loss, device=self.accelerator.device, requires_grad=True)
+        # Skip backward if no loss computed (e.g., Stage 2 with all visual losses disabled)
+        if not torch.is_tensor(self.total_loss) or self.total_loss == 0:
+            self.total_loss = 0.
+            return
 
         if self.mixed_precision and self.scaler:
-            self.scaler.scale(self.total_loss)
-            self.accelerator.backward(self.total_loss)
+            scaled_loss = self.scaler.scale(self.total_loss)
+            self.accelerator.backward(scaled_loss)
             # Step optimizer if it is used, Unused optimizers will raise assertion error when unscaling
             try:
                 self.scaler.step(self.optimizerInstance)
