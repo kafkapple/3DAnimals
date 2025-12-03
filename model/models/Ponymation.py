@@ -67,21 +67,36 @@ class Ponymation(AnimalModel):
             arti_params=arti_params, deformation=deformation, pose_raw=pose_raw, posed_bones=posed_bones,
             prior_shape=prior_shape, **kwargs
         )
-        if self.cfg_loss.arti_recon_loss_weight > 0 and hasattr(self.get_predictor("netInstance"), "articulation_angles_gt"):
-            assert not self.get_predictor("netInstance").articulation_angles_gt.requires_grad
+        # Debug: check motion VAE state
+        netInstance = self.get_predictor("netInstance")
+        has_arti_gt = hasattr(netInstance, "articulation_angles_gt")
+        has_mu_vae = hasattr(netInstance, "mu_vae")
+        has_log_var = hasattr(netInstance, "log_var_vae")
+        enable_vae = getattr(netInstance, "enable_motion_vae", False)
+
+        if self.cfg_loss.arti_recon_loss_weight > 0 and has_arti_gt:
+            assert not netInstance.articulation_angles_gt.requires_grad
             losses["arti_recon_loss"] = self.arti_recon_loss_fn(  # L_teacher
-                self.get_predictor("netInstance").articulation_angles_pred, self.get_predictor("netInstance").articulation_angles_gt
+                netInstance.articulation_angles_pred, netInstance.articulation_angles_gt
             )
         if (
             self.cfg_loss.kld_loss_weight > 0
-            and hasattr(self.get_predictor("netInstance"), "log_var_vae") and hasattr(self.get_predictor("netInstance"), "mu_vae")
+            and has_log_var and has_mu_vae
         ):
             losses["kld_loss"] = -0.5 * torch.mean(  # L_KL
                 torch.sum(
-                    1 + self.get_predictor("netInstance").log_var_vae - self.get_predictor("netInstance").mu_vae ** 2 - self.get_predictor("netInstance").log_var_vae.exp(),
+                    1 + netInstance.log_var_vae - netInstance.mu_vae ** 2 - netInstance.log_var_vae.exp(),
                     dim=1
                 )
             )
+
+        # Debug log for Stage 2 troubleshooting
+        if not hasattr(self, '_debug_logged'):
+            print(f"[DEBUG Ponymation] enable_motion_vae={enable_vae}, has_arti_gt={has_arti_gt}, has_mu_vae={has_mu_vae}, has_log_var={has_log_var}")
+            print(f"[DEBUG Ponymation] arti_recon_loss_weight={self.cfg_loss.arti_recon_loss_weight}, kld_loss_weight={self.cfg_loss.kld_loss_weight}")
+            print(f"[DEBUG Ponymation] regularizer losses computed: {list(losses.keys())}")
+            self._debug_logged = True
+
         return losses, aux
 
     def compute_reconstruction_losses(
