@@ -19,7 +19,7 @@ defaults:
 run_train: true
 run_test: true  # Save mesh visualizations after training
 seed: 42
-gpu: 0
+gpu: 1
 num_iters: 200000  # 200K iterations for large dataset
 shuffle_dataset_paths: false  # Avoid AttributeError with accelerate DataLoader
 

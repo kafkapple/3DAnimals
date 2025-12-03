@@ -47,7 +47,7 @@ model:
 run_train: true
 run_test: false
 seed: 0
-gpu: 0
+gpu: 1
 num_iters: 10000
 save_checkpoint_freq: 2000
 checkpoint_dir: results/ponymation/mouse_stage1

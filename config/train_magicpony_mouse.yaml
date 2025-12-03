@@ -24,7 +24,7 @@ dataset:
 run_train: true
 run_test: false
 seed: 0
-gpu: 0
+gpu: 1
 num_iters: 100000
 checkpoint_dir: results/magicpony/mouse
 save_checkpoint_freq: 2000

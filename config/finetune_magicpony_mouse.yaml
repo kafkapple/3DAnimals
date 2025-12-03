@@ -49,7 +49,7 @@ model:
 run_train: true
 run_test: false
 seed: 42
-gpu: 0
+gpu: 1
 num_iters: 100000  # Fine-tuning: 100K (from scratch 보다 적음)
 save_checkpoint_freq: 2000
 keep_num_checkpoint: 3

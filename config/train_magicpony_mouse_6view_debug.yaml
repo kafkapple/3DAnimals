@@ -30,7 +30,7 @@ dataset:
 run_train: true
 run_test: true  # Run test after training to save mesh visualizations
 seed: 42
-gpu: 0
+gpu: 1
 num_iters: 5000  # Short debug run
 
 # Checkpoint settings

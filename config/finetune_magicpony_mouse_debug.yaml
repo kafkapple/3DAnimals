@@ -36,7 +36,7 @@ dataset:
 run_train: true
 run_test: false
 seed: 42
-gpu: 0
+gpu: 1
 num_iters: 5000  # Debug: 5K iterations
 save_checkpoint_freq: 1000
 log_image_freq: 100

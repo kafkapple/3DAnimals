@@ -374,7 +374,14 @@ class AnimalModel:
 
     def forward(self, batch, epoch, logger=None, total_iter=None, save_results=False, save_dir=None, logger_prefix='', is_training=True):
         input_image, mask_gt, mask_dt, mask_valid, flow_gt, bbox, bg_image, dino_feat_im, dino_cluster_im, keypoint, seq_idx, frame_idx = batch
-        global_frame_id, crop_x0, crop_y0, crop_w, crop_h, full_w, full_h, sharpness = bbox.unbind(2)  # BxFx8
+        if bbox.shape[2] == 9:
+            # Fauna Dataset bbox (includes category_idx)
+            global_frame_id, crop_x0, crop_y0, crop_w, crop_h, full_w, full_h, sharpness, _ = bbox.unbind(2)  # BxFx9
+        elif bbox.shape[2] == 8:
+            # MagicPony/SequenceDataset bbox
+            global_frame_id, crop_x0, crop_y0, crop_w, crop_h, full_w, full_h, sharpness = bbox.unbind(2)  # BxFx8
+        else:
+            raise ValueError(f"Unexpected bbox shape: {bbox.shape}, expected last dim to be 8 or 9")
         mask_gt = (mask_gt[:, :, 0, :, :] > 0.9).float()  # BxFxHxW
         mask_dt = mask_dt / self.dataset.in_image_size
         batch_size, num_frames, _, _, _ = input_image.shape  # BxFxCxHxW

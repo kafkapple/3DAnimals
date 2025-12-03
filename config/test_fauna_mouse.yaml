@@ -42,7 +42,7 @@ dataset:
 run_train: false
 run_test: true
 seed: 0
-gpu: 0
+gpu: 1
 load_optim: false
 
 # Wandb logging

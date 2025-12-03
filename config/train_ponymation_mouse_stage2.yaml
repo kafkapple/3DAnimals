@@ -60,7 +60,7 @@ model:
 run_train: true
 run_test: false
 seed: 0
-gpu: 0
+gpu: 1
 num_iters: 100000  # 마우스용 축소 (500K -> 100K)
 save_checkpoint_freq: 5000
 checkpoint_dir: results/ponymation/mouse_stage2
