@@ -190,6 +190,11 @@ class AnimalModel:
     def backward(self):
         self.optimizerInstance.zero_grad()
         self.optimizerBase.zero_grad()
+
+        # Ensure total_loss is a Tensor (can be float 0.0 if no losses computed)
+        if not torch.is_tensor(self.total_loss):
+            self.total_loss = torch.tensor(self.total_loss, device=self.accelerator.device, requires_grad=True)
+
         if self.mixed_precision and self.scaler:
             self.scaler.scale(self.total_loss)
             self.accelerator.backward(self.total_loss)
