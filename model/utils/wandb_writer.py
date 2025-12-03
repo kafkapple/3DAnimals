@@ -1,7 +1,13 @@
+import os
 import os.path
+import logging
 
 import wandb
 import numpy as np
+
+# Reduce wandb verbosity (suppress "Encoding video..." messages)
+logging.getLogger("wandb").setLevel(logging.WARNING)
+os.environ.setdefault("WANDB_SILENT", "true")
 from einops import rearrange
 from torchvision.transforms.functional import to_pil_image
 from dataclasses import is_dataclass, asdict
