@@ -24,12 +24,14 @@ dataset:
   train_data_dir: data/ponymation/mouse/train
   val_data_dir: data/ponymation/mouse/test
   random_shuffle_samples_train: true
-  load_dino_feature: false
+  load_dino_feature: true
   dino_feature_dim: 16
 
 
 model:
   enable_render: true
+  cfg_render:
+    render_default: false
   cfg_predictor_base:
     cfg_shape:
       grid_res_coarse_iter_range: [0, inf]
