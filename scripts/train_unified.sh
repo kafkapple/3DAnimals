@@ -108,8 +108,11 @@ check_pretrained() {
             ;;
         ponymation-s2)
             # Check for Stage 1 checkpoint (auto-detect latest checkpoint*.pth)
-            STAGE1_FULL_DIR="${PROJECT_DIR}/results/ponymation/mouse_finetune_stage1"
-            STAGE1_DEBUG_DIR="${PROJECT_DIR}/results/ponymation/mouse_finetune_stage1_debug"
+            # Search order: finetune full → finetune debug → scratch full → scratch debug
+            STAGE1_FINETUNE_FULL="${PROJECT_DIR}/results/ponymation/mouse_finetune_stage1"
+            STAGE1_FINETUNE_DEBUG="${PROJECT_DIR}/results/ponymation/mouse_finetune_stage1_debug"
+            STAGE1_SCRATCH_FULL="${PROJECT_DIR}/results/ponymation/mouse_stage1"
+            STAGE1_SCRATCH_DEBUG="${PROJECT_DIR}/results/ponymation/mouse_stage1_debug"
 
             # Find latest checkpoint in directory
             find_latest_checkpoint() {
@@ -117,19 +120,32 @@ check_pretrained() {
                 ls -t "$dir"/checkpoint*.pth 2>/dev/null | head -1
             }
 
-            STAGE1_CKPT=$(find_latest_checkpoint "$STAGE1_FULL_DIR")
-            if [ -z "$STAGE1_CKPT" ]; then
-                STAGE1_CKPT=$(find_latest_checkpoint "$STAGE1_DEBUG_DIR")
-                if [ -n "$STAGE1_CKPT" ]; then
-                    print_warning "Using Stage 1 DEBUG checkpoint: $STAGE1_CKPT"
-                fi
+            # Try finetune first, then scratch
+            STAGE1_CKPT=$(find_latest_checkpoint "$STAGE1_FINETUNE_FULL")
+            if [ -n "$STAGE1_CKPT" ]; then
+                print_info "Using Stage 1 FINETUNE checkpoint: $STAGE1_CKPT"
             else
-                print_info "Using Stage 1 checkpoint: $STAGE1_CKPT"
+                STAGE1_CKPT=$(find_latest_checkpoint "$STAGE1_FINETUNE_DEBUG")
+                if [ -n "$STAGE1_CKPT" ]; then
+                    print_warning "Using Stage 1 FINETUNE DEBUG checkpoint: $STAGE1_CKPT"
+                else
+                    STAGE1_CKPT=$(find_latest_checkpoint "$STAGE1_SCRATCH_FULL")
+                    if [ -n "$STAGE1_CKPT" ]; then
+                        print_info "Using Stage 1 SCRATCH checkpoint: $STAGE1_CKPT"
+                    else
+                        STAGE1_CKPT=$(find_latest_checkpoint "$STAGE1_SCRATCH_DEBUG")
+                        if [ -n "$STAGE1_CKPT" ]; then
+                            print_warning "Using Stage 1 SCRATCH DEBUG checkpoint: $STAGE1_CKPT"
+                        fi
+                    fi
+                fi
             fi
 
             if [ -z "$STAGE1_CKPT" ]; then
                 print_error "Stage 1 checkpoint not found!"
-                print_info "Run Stage 1 first: $0 ponymation-s1 debug finetune"
+                print_info "Run Stage 1 first:"
+                print_info "  Finetune: $0 ponymation-s1 debug finetune"
+                print_info "  Scratch:  $0 ponymation-s1 debug scratch"
                 exit 1
             fi
 
