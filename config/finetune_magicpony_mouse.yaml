@@ -23,7 +23,7 @@ hydra:
 defaults:
   - base
   - dataset: image
-  - model: magicpony_mouse
+  - model: magicpony_mouse_finetune
 
 
 dataset:
