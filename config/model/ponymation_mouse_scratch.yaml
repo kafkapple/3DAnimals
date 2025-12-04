@@ -33,6 +33,7 @@ cfg_predictor_instance:
     legs_to_body_joint_indices: [1, 5, 5, 1]
     skinning_temperature: 0.05
     max_arti_angle: 60
+    extra_constraints: false
 
   cfg_deform:
     deform_iter_range: [50000, inf]
