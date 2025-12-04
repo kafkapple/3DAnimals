@@ -282,9 +282,9 @@ run_training() {
         debug)
             print_info "Debug mode: 빠른 검증 (10-20분)"
             if [ -n "$EXTRA_ARGS" ]; then
-                conda run -n "$CONDA_ENV" python run.py --config-name "$CONFIG" $EXTRA_ARGS
+                conda run --no-capture-output -n "$CONDA_ENV" python run.py --config-name "$CONFIG" $EXTRA_ARGS
             else
-                conda run -n "$CONDA_ENV" python run.py --config-name "$CONFIG"
+                conda run --no-capture-output -n "$CONDA_ENV" python run.py --config-name "$CONFIG"
             fi
             print_info "✓ Debug training completed!"
             ;;
@@ -297,9 +297,9 @@ run_training() {
                 exit 0
             fi
             if [ -n "$EXTRA_ARGS" ]; then
-                conda run -n "$CONDA_ENV" python run.py --config-name "$CONFIG" $EXTRA_ARGS
+                conda run --no-capture-output -n "$CONDA_ENV" python run.py --config-name "$CONFIG" $EXTRA_ARGS
             else
-                conda run -n "$CONDA_ENV" python run.py --config-name "$CONFIG"
+                conda run --no-capture-output -n "$CONDA_ENV" python run.py --config-name "$CONFIG"
             fi
             print_info "✓ Full training completed!"
             ;;
