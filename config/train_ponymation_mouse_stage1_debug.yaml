@@ -24,7 +24,7 @@ dataset:
   train_data_dir: data/ponymation/mouse/train
   val_data_dir: data/ponymation/mouse/test
   random_shuffle_samples_train: true
-  load_dino_feature: false
+  load_dino_feature: true
   dino_feature_dim: 16
 
 
