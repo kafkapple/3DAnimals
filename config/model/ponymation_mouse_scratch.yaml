@@ -1,0 +1,68 @@
+# Ponymation Mouse - From Scratch Configuration
+# Horse prior 없이 mouse 시퀀스 데이터로 학습
+# 시간적 연속성과 articulation 학습에 초점
+
+defaults:
+  - ponymation
+
+name: Ponymation
+
+cfg_render:
+  spatial_scale: 5.0  # 마우스 크기
+
+cfg_predictor_base:
+  cfg_shape:
+    grid_res: 64
+    grid_res_coarse_iter_range: [0, 20000]  # scratch는 더 오래 coarse
+    grid_res_coarse: 32
+    spatial_scale: ${...cfg_render.spatial_scale}
+    jitter_grid: 0.05
+
+cfg_predictor_instance:
+  spatial_scale: ${..cfg_render.spatial_scale}
+  
+  # Motion VAE - Stage 2에서 활성화
+  enable_motion_vae: false
+  
+  cfg_articulation:
+    articulation_iter_range: [5000, inf]
+    num_body_bones: 6  # 마우스용
+    num_legs: 4
+    num_leg_bones: 3
+    attach_legs_to_body_iter_range: [30000, inf]
+    legs_to_body_joint_indices: [1, 5, 5, 1]
+    skinning_temperature: 0.05
+    max_arti_angle: 60
+
+  cfg_deform:
+    deform_iter_range: [50000, inf]
+    force_avg_deform: true
+
+cfg_loss:
+  # Mask - 표준
+  mask_loss_weight: 10.0
+  mask_inv_dt_loss_weight: 100.0
+  
+  # RGB/DINO
+  rgb_loss_weight: 1.0
+  dino_feat_im_loss_weight: 10.0
+  
+  # SDF regularization
+  sdf_reg_decay_start_iter: 10000
+  sdf_bce_reg_loss_weight: 0.5
+  sdf_gradient_reg_loss_weight: 0.5
+  
+  # Articulation
+  logit_loss_weight: 1.0
+  arti_reg_loss_weight: 0.1
+  deform_reg_loss_weight: 10.0
+  
+  # Smooth losses - 시퀀스 연속성
+  artivel_smooth_loss_weight: 1.0
+  bonevel_smooth_loss_weight: 0.5
+
+cfg_optim_base:
+  lr: 0.0001
+
+cfg_optim_instance:
+  lr: 0.0001

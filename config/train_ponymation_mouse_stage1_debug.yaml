@@ -13,7 +13,7 @@ hydra:
 defaults:
   - base
   - dataset: sequence
-  - model: ponymation_mouse
+  - model: ponymation_mouse_scratch
 
 
 dataset:
