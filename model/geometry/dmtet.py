@@ -314,6 +314,20 @@ class DMTetGeometry(torch.nn.Module):
             v_deformed = v_deformed + jitter
 
         self.current_sdf = self.get_sdf(v_deformed, total_iter=total_iter, feats=feats)
+
+        # Prevent mesh collapse: ensure SDF has both positive and negative values
+        sdf_min = self.current_sdf.min()
+        sdf_max = self.current_sdf.max()
+        if sdf_min >= 0 or sdf_max <= 0:
+            # SDF collapsed - shift to ensure zero-crossing exists
+            sdf_mean = self.current_sdf.mean()
+            self.current_sdf = self.current_sdf - sdf_mean
+            # If still no crossing, force a small range
+            if self.current_sdf.min() >= 0:
+                self.current_sdf = self.current_sdf - 0.1
+            elif self.current_sdf.max() <= 0:
+                self.current_sdf = self.current_sdf + 0.1
+
         self.marching_tets = self.marching_tets.to(v_deformed.device)
         verts, faces, uvs, uv_idx = self.marching_tets(v_deformed, self.current_sdf, self.indices)
         self.mesh_verts = verts

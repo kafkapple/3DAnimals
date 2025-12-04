@@ -43,6 +43,7 @@ run_train: false
 run_test: true
 seed: 0
 gpu: 1
+disable_tf32: true
 load_optim: false
 
 # Wandb logging

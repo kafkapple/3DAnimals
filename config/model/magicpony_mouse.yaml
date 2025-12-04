@@ -1,46 +1,48 @@
-# MagicPony Mouse - Stabilized Configuration
-# 강화된 SDF regularization으로 mesh collapse 방지
+# MagicPony Mouse - Ultra-Stabilized Configuration
+# Mesh collapse 방지를 위한 매우 보수적인 설정
 
 defaults:
   - magicpony
 
 name: MagicPony
 
-# Shape network - 더 보수적인 설정 (메모리 최적화)
+# Shape network - coarse resolution 유지
 cfg_predictor_base:
   cfg_shape:
-    grid_res: 64  # 128 -> 64 (메모리 절약)
-    grid_res_coarse_iter_range: [0, 50000]  # 더 오래 coarse 유지
-    grid_res_coarse: 32  # 64 -> 32
-    jitter_grid: 0.02  # 더 작게 (안정성)
-    spatial_scale: 5.0  # 마우스 크기에 맞춤
+    grid_res: 64
+    grid_res_coarse_iter_range: [0, inf]  # 항상 coarse 유지
+    grid_res_coarse: 32
+    jitter_grid: 0.01  # 매우 작게
+    spatial_scale: 5.0
 
-# Articulation/Deformation 늦게 시작
+# Articulation/Deformation 완전히 비활성화 (초기 학습)
 cfg_predictor_instance:
-  enable_deform: false  # 비활성화
+  enable_deform: false
   cfg_deform:
-    deform_iter_range: [200000, inf]
+    deform_iter_range: [500000, inf]  # 사실상 비활성화
   cfg_articulation:
-    articulation_iter_range: [50000, inf]  # 더 늦게
+    articulation_iter_range: [100000, inf]  # 매우 늦게
 
-# 강화된 Loss Configuration
+# Loss Configuration - SDF 안정성 최우선
 cfg_loss:
-  # Mask losses - 강화
-  mask_loss_weight: 50.0
-  mask_inv_dt_loss_weight: 500.0
+  # Mask losses
+  mask_loss_weight: 100.0  # 강화
+  mask_dt_loss_weight: 1.0
+  mask_inv_dt_loss_weight: 1000.0  # 강화
 
-  # SDF regularization - 핵심! 대폭 강화
-  sdf_reg_decay_start_iter: 100000
-  sdf_bce_reg_loss_weight: 5.0    # 0 → 5 (collapse 방지)
-  sdf_gradient_reg_loss_weight: 5.0  # 0.01 → 5 (500배 강화)
+  # SDF regularization - 최대 강화
+  sdf_reg_decay_start_iter: 500000  # decay 없음
+  sdf_bce_reg_loss_weight: 10.0  # 대폭 강화
+  sdf_gradient_reg_loss_weight: 10.0  # 대폭 강화
 
   # 기타
+  rgb_loss_weight: 1.0
   dino_feat_im_loss_weight: 5.0
-  logit_loss_weight: 0.5
+  logit_loss_weight: 0.1  # 낮춤
 
-# 낮은 Learning Rate
+# 매우 낮은 Learning Rate
 cfg_optim_base:
-  lr: 0.00005  # 0.0001 → 0.00005
+  lr: 0.00001  # 매우 낮게
 
 cfg_optim_instance:
-  lr: 0.00005
+  lr: 0.00001

@@ -55,6 +55,7 @@ run_train: true
 run_test: false
 seed: 42
 gpu: 1
+disable_tf32: true
 num_iters: 2000  # Debug: 2K iterations
 save_checkpoint_freq: 500
 log_image_freq: 100
