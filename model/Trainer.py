@@ -264,7 +264,21 @@ class Trainer:
 
     def run_train_epoch(self, epoch):
         metrics = self.make_metrics()
-        for iteration, batch in enumerate(self.train_loader):
+
+        # Calculate remaining iterations for progress bar
+        remaining_iters = self.num_iters - self.total_iter + 1
+        epoch_iters = min(len(self.train_loader), remaining_iters)
+
+        # Create tqdm progress bar
+        pbar = tqdm(
+            enumerate(self.train_loader),
+            total=epoch_iters,
+            desc=f"Epoch {epoch}",
+            ncols=120,
+            leave=True
+        )
+
+        for iteration, batch in pbar:
             self.total_iter += 1
 
             if self.cfg.remake_dataloader_iter > 0:
@@ -283,7 +297,7 @@ class Trainer:
                 discriminator_loss_dict, grad_loss = self.model.discriminator_step()
                 m.update(
                     {
-                        'mask_disc_loss_discriminator': discriminator_loss_dict['discriminator_loss'] - grad_loss, 
+                        'mask_disc_loss_discriminator': discriminator_loss_dict['discriminator_loss'] - grad_loss,
                         'mask_disc_loss_discriminator_grad': grad_loss,
                         'mask_disc_loss_discriminator_rv': discriminator_loss_dict['discriminator_loss_rv'],
                         'mask_disc_loss_discriminator_iv': discriminator_loss_dict['discriminator_loss_iv'],
@@ -297,7 +311,13 @@ class Trainer:
                 num_seqs, num_frames = batch[0].shape[:2]
                 total_im_num = num_seqs*num_frames
                 metrics.update(m, total_im_num)
-                print(f"T{self.total_iter:06}/{metrics}")
+
+                # Update progress bar with loss info
+                loss_val = m.get('loss', 0)
+                pbar.set_postfix({
+                    'iter': f'{self.total_iter}/{self.num_iters}',
+                    'loss': f'{loss_val:.4f}'
+                })
 
             if self.use_logger:
                 if self.accelerator.is_main_process and self.total_iter % self.log_loss_freq == 0:
