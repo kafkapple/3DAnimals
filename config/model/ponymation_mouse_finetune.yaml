@@ -1,0 +1,68 @@
+# Ponymation Mouse - Finetune Configuration (High LR)
+# Horse → Mouse 빠른 adaptation
+# Articulation 지식은 활용하되 shape는 빠르게 변경
+
+defaults:
+  - ponymation
+
+name: Ponymation
+
+cfg_render:
+  spatial_scale: 5.0
+
+cfg_predictor_base:
+  cfg_shape:
+    grid_res: 64
+    grid_res_coarse_iter_range: [0, 5000]  # 빨리 fine으로 전환
+    grid_res_coarse: 32
+    spatial_scale: ${...cfg_render.spatial_scale}
+    jitter_grid: 0.05
+
+cfg_predictor_instance:
+  spatial_scale: ${..cfg_render.spatial_scale}
+  
+  enable_motion_vae: false
+  
+  cfg_articulation:
+    articulation_iter_range: [1000, inf]  # 빨리 활성화 (horse 지식 활용)
+    num_body_bones: 6
+    num_legs: 4
+    num_leg_bones: 3
+    attach_legs_to_body_iter_range: [10000, inf]  # 빨리 연결
+    legs_to_body_joint_indices: [1, 5, 5, 1]
+    skinning_temperature: 0.05
+    max_arti_angle: 60
+
+  cfg_deform:
+    deform_iter_range: [30000, inf]
+    force_avg_deform: true
+
+cfg_loss:
+  # Mask - 강화 (shape 변화 유도)
+  mask_loss_weight: 50.0
+  mask_inv_dt_loss_weight: 500.0
+  
+  # RGB/DINO
+  rgb_loss_weight: 1.0
+  dino_feat_im_loss_weight: 10.0
+  
+  # SDF - 낮춤 (shape 변화 허용)
+  sdf_reg_decay_start_iter: 5000
+  sdf_bce_reg_loss_weight: 0.1
+  sdf_gradient_reg_loss_weight: 0.1
+  
+  # Articulation - prior 약화
+  logit_loss_weight: 0.2
+  arti_reg_loss_weight: 0.05  # 낮춤: 새로운 articulation 허용
+  deform_reg_loss_weight: 5.0
+  
+  # Smooth losses - 시퀀스 연속성 유지
+  artivel_smooth_loss_weight: 1.0
+  bonevel_smooth_loss_weight: 0.5
+
+# 높은 LR - shape 빠른 변화
+cfg_optim_base:
+  lr: 0.0005
+
+cfg_optim_instance:
+  lr: 0.0003  # instance는 약간 낮게 (articulation 안정성)
