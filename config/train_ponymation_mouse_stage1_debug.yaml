@@ -30,6 +30,8 @@ dataset:
 
 model:
   enable_render: true
+  cfg_render:
+    render_default: false
   cfg_predictor_base:
     cfg_shape:
       grid_res_coarse_iter_range: [0, inf]
