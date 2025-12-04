@@ -72,8 +72,8 @@ keep_num_checkpoint: 3
 
 # Stage 2 saves results here
 checkpoint_dir: results/ponymation/mouse_finetune_stage2
-# checkpoint_path: set via train_unified.sh or command line override
-# e.g., checkpoint_path=results/ponymation/mouse_finetune_stage1/checkpoint.pth
+# Default checkpoint_path - can be overridden via command line
+checkpoint_path: results/ponymation/mouse_finetune_stage1/checkpoint.pth
 resume: true
 reset_epoch: true  # Reset iteration counter for Stage 2
 load_optim: false
