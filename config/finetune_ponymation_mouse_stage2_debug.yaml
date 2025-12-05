@@ -21,7 +21,7 @@ hydra:
 defaults:
   - base
   - dataset: sequence
-  - model: ponymation  # Use original ponymation model (not ponymation_mouse)
+  - model: ponymation_mouse_stage2  # Mouse Stage 2 config (NOT horse ponymation)
 
 
 dataset:
