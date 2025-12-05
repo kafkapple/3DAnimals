@@ -82,27 +82,38 @@ class Trainer:
 
     def load_checkpoint(self):
         """Search the specified/latest checkpoint in checkpoint_dir and load the model and optimizer."""
-        if self.checkpoint_path is not None:
+        # First, check if there's an existing checkpoint in checkpoint_dir (for resume)
+        checkpoints = sorted(
+            glob(osp.join(self.checkpoint_dir, '*.pth')),
+            key=lambda x: int(''.join([c for c in osp.basename(x) if c.isdigit()]))
+        )
+
+        # Determine which checkpoint to load and whether to reset epoch
+        should_reset_epoch = self.reset_epoch
+
+        if len(checkpoints) > 0:
+            # Resume from existing checkpoint in checkpoint_dir (highest priority)
+            checkpoint_path = checkpoints[-1]
+            self.checkpoint_name = osp.basename(checkpoint_path)
+            should_reset_epoch = False  # Always continue from own checkpoint
+            print(f"[Resume] Found existing checkpoint, continuing training")
+        elif self.checkpoint_path is not None:
+            # Load from specified checkpoint_path (pretrained/transfer learning)
             checkpoint_path = self.checkpoint_path
+            print(f"[Transfer] Loading from pretrained checkpoint")
         elif self.checkpoint_name is not None:
             checkpoint_path = osp.join(self.checkpoint_dir, self.checkpoint_name)
         else:
-            checkpoints = sorted(
-                glob(osp.join(self.checkpoint_dir, '*.pth')),
-                key=lambda x: int(''.join([c for c in osp.basename(x) if c.isdigit()]))
-            )
-            if len(checkpoints) == 0:
-                print(f"No checkpoint found in {self.checkpoint_dir}, train from scratch")
-                return 0, 0
-            checkpoint_path = checkpoints[-1]
-            self.checkpoint_name = osp.basename(checkpoint_path)
+            print(f"No checkpoint found in {self.checkpoint_dir}, train from scratch")
+            return 0, 0
+
         print(f"Loading checkpoint from {checkpoint_path}")
         cp = torch.load(checkpoint_path, map_location="cpu")
         self.model.load_model_state(cp)
         if self.load_optim:
             self.model.load_optimizer_state(cp)
         self.metrics_trace = cp.get('metrics_trace', self.metrics_trace)
-        if self.reset_epoch:
+        if should_reset_epoch:
             return 0, 0
         else:
             epoch = cp.get('epoch', 999)
