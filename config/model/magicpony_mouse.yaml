@@ -22,6 +22,11 @@ cfg_predictor_instance:
     deform_iter_range: [500000, inf]  # 사실상 비활성화
   cfg_articulation:
     articulation_iter_range: [100000, inf]  # 매우 늦게
+    num_body_bones: 6  # mouse용 (horse: 8)
+    num_legs: 4
+    num_leg_bones: 3
+    legs_to_body_joint_indices: [1, 5, 5, 1]  # mouse용
+    extra_constraints: false
 
 # Loss Configuration - SDF 안정성 최우선
 cfg_loss:
