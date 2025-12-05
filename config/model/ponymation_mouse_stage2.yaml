@@ -1,0 +1,66 @@
+# Ponymation Mouse - Stage 2 Configuration
+# Motion VAE 학습용 (articulation은 Stage 1에서 학습됨)
+
+defaults:
+  - ponymation
+
+name: Ponymation
+
+cfg_render:
+  spatial_scale: 5.0
+
+cfg_predictor_base:
+  cfg_shape:
+    grid_res: 64
+    grid_res_coarse_iter_range: [0, inf]
+    grid_res_coarse: 32
+    spatial_scale: ${...cfg_render.spatial_scale}
+    jitter_grid: 0.05
+
+cfg_predictor_instance:
+  spatial_scale: ${..cfg_render.spatial_scale}
+  
+  # Stage 2: Motion VAE 활성화
+  enable_motion_vae: true
+  
+  cfg_articulation:
+    articulation_iter_range: [0, inf]  # 이미 학습됨
+    num_body_bones: 6  # mouse용
+    num_legs: 4
+    num_leg_bones: 3
+    attach_legs_to_body_iter_range: [0, inf]
+    legs_to_body_joint_indices: [1, 5, 5, 1]
+    skinning_temperature: 0.05
+    max_arti_angle: 60
+    extra_constraints: false  # mouse는 8 body bones 아님
+
+  cfg_deform:
+    deform_iter_range: [0, inf]
+    force_avg_deform: true
+  
+  cfg_motion_vae:
+    latent_dim: 256
+
+cfg_loss:
+  # Visual losses 비활성화 (Stage 2)
+  mask_loss_weight: 0.
+  mask_dt_loss_weight: 0.
+  mask_inv_dt_loss_weight: 0.
+  rgb_loss_weight: 0.
+  dino_feat_im_loss_weight: 0.
+  logit_loss_weight: 0.
+  sdf_bce_reg_loss_weight: 0.
+  sdf_gradient_reg_loss_weight: 0.
+  arti_reg_loss_weight: 0.
+  deform_reg_loss_weight: 0.
+  artivel_smooth_loss_weight: 0.
+  
+  # VAE losses 활성화
+  arti_recon_loss_weight: 100.0
+  kld_loss_weight: 0.001
+
+cfg_optim_base:
+  lr: 0.0001
+
+cfg_optim_instance:
+  lr: 0.0001
