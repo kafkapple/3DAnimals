@@ -30,8 +30,11 @@ class InstancePredictorMotionVAE(InstancePredictorBase):
         super().__init__(cfg)
         misc.load_cfg(self, cfg, InstancePredictorMotionVAEConfig)
         if self.enable_motion_vae:
+            # Calculate num_joints from articulation config (not hardcoded)
+            num_joints = self.cfg_articulation.num_body_bones + \
+                         self.cfg_articulation.num_legs * self.cfg_articulation.num_leg_bones
             self.netVAE = ArticulationVAE(
-                njoints=20,
+                njoints=num_joints,  # Dynamic based on config (mouse: 6+12=18, horse: 8+12=20)
                 feat_dim=640,
                 pos_dim=1 + 2 + 3 * 2,
                 n_harmonic_functions=8,
