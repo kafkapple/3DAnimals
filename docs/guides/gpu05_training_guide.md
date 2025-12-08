@@ -4,15 +4,131 @@
 
 ---
 
-## 환경 정보
+## 서버 환경 상세 정보
+
+### 시스템 사양
+
+| 항목 | 값 | 비고 |
+|------|-----|------|
+| **Server** | gpu05 | 공용 서버 (다중 사용자) |
+| **OS** | Ubuntu 18.04.5 LTS | **구버전** - 패키지 호환성 주의 |
+| **Kernel** | 4.15.0-177-generic | |
+| **GPU** | NVIDIA RTX A6000 x2 | 49GB VRAM each |
+| **GPU Driver** | 535.183.01 | CUDA 12.2 지원 |
+| **Storage** | NFS `/home/joon` | 14TB 중 12TB 사용 (88%) |
+
+### GPU 사용 규칙
+
+| GPU | 상태 | 권장 사용 |
+|-----|------|----------|
+| **GPU 0** | 다른 사용자 사용 가능 | 피하기 |
+| **GPU 1** | 주로 사용 | ✅ **config에서 `gpu: 1` 설정** |
+
+```yaml
+# config에서 GPU 지정
+gpu: 1  # 항상 GPU 1번 사용!
+```
+
+### CUDA 환경
 
 | 항목 | 값 |
 |------|-----|
-| **Server** | gpu05 |
-| **GPU** | NVIDIA RTX A6000 x2 (49GB each) |
+| **시스템 기본 CUDA** | `/usr/local/cuda` → 12.1 (심볼릭 링크) |
+| **사용 가능 버전** | 10.2, 11.1, 11.3, 11.7, **11.8**, 12.1 |
+| **권장 버전** | **CUDA 11.8** (안정적, PyTorch 2.0 호환) |
+
+```bash
+# 사용 가능한 CUDA 버전 확인
+ls /usr/local/cuda-*
+
+# 출력:
+# /usr/local/cuda-10.2
+# /usr/local/cuda-11.1
+# /usr/local/cuda-11.3
+# /usr/local/cuda-11.7
+# /usr/local/cuda-11.8  ← 권장
+# /usr/local/cuda-12.1
+```
+
+### Python/PyTorch 환경 (3danimals)
+
+| 항목 | 값 |
+|------|-----|
 | **Conda Env** | `3danimals` |
-| **Project Path** | `~/3DAnimals` |
-| **Local Project** | `/home/joon/dev/3DAnimals` |
+| **Python** | 3.9.23 |
+| **PyTorch** | 2.0.1+cu118 |
+| **CUDA (PyTorch)** | 11.8 |
+
+---
+
+## 새 프로젝트 환경 구축 가이드
+
+### 1. CUDA 버전 선택 및 설정
+
+**권장: CUDA 11.8 + PyTorch 2.0.x**
+
+```bash
+# .bashrc에 CUDA 경로 설정 (선택적)
+export CUDA_HOME=/usr/local/cuda-11.8
+export PATH=$CUDA_HOME/bin:$PATH
+export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
+```
+
+**주의:** 시스템 기본 `/usr/local/cuda`는 12.1을 가리킴. PyTorch cu118과 불일치할 수 있음.
+
+### 2. Conda 환경 생성
+
+```bash
+# 새 환경 생성
+conda create -n my_project python=3.9 -y
+conda activate my_project
+
+# PyTorch 설치 (CUDA 11.8)
+pip install torch==2.0.1 torchvision==0.15.2 --index-url https://download.pytorch.org/whl/cu118
+
+# 설치 확인
+python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
+```
+
+### 3. 안정적인 버전 조합 (검증됨)
+
+| Python | PyTorch | CUDA | 상태 |
+|--------|---------|------|------|
+| 3.9 | 2.0.1 | 11.8 | ✅ **권장 (3danimals)** |
+| 3.9 | 1.13.1 | 11.7 | ✅ 안정 |
+| 3.10 | 2.1.0 | 11.8 | ⚠️ 일부 패키지 호환성 문제 |
+| 3.11+ | 2.x | 12.1 | ⚠️ Ubuntu 18.04에서 문제 가능 |
+
+### 4. 주의사항: 공용 서버
+
+```bash
+# 다른 사용자 프로세스 확인
+ps aux | grep python | grep -v $USER
+
+# GPU 사용 현황
+nvidia-smi
+
+# 디스크 사용량 (NFS 공유)
+df -h ~
+```
+
+**중요:**
+- `/usr/local/`은 **root 권한** 필요 → 수정 불가
+- 개인 CUDA 설치가 필요하면 `~/.local/` 또는 conda 환경 내에서
+- GPU 0번은 다른 사용자가 자주 사용 → **GPU 1번 사용 권장**
+
+---
+
+## 경로 정보
+
+| 항목 | 경로 |
+|------|------|
+| **Home** | `/home/joon` (NFS 마운트) |
+| **Project** | `~/3DAnimals` |
+| **Conda** | `~/anaconda3` |
+| **CUDA 11.8** | `/usr/local/cuda-11.8` |
+| **Data** | `~/3DAnimals/data/` |
+| **Results** | `~/3DAnimals/results/` |
 
 ---
 
