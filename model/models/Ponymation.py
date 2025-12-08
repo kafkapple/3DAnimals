@@ -51,6 +51,10 @@ class Ponymation(AnimalModel):
             param.requires_grad = False
         for param in self.get_predictor("netInstance").netArticulation.parameters():
             param.requires_grad = True
+        # Stage 2: netVAE도 학습해야 함
+        if self.get_predictor("netInstance").enable_motion_vae:
+            for param in self.get_predictor("netInstance").netVAE.parameters():
+                param.requires_grad = True
 
     def load_model_state(self, cp):
         super().load_model_state(cp)
