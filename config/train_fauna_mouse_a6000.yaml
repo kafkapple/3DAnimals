@@ -63,3 +63,4 @@ wandb_project: Fauna_mouse_a6000
 wandb_run_name: original_800k_${now:%Y%m%d_%H%M%S}
 log_image_freq: 1000
 log_loss_freq: 100
+log_val: false  # No validation set available
