@@ -1,0 +1,75 @@
+# MagicPony Training Configuration - A6000 Original Paper Settings
+#
+# MagicPony (CVPR 2023) original training setup:
+# - 140K iterations for pretrained model
+# - A6000 (48GB VRAM) enables identical settings
+#
+# This config: FINE-TUNE from pretrained horse model (recommended)
+# For from-scratch training, use train_magicpony_mouse_scratch_a6000.yaml
+#
+# Expected training time: ~1.5-2 days on A6000 (100K fine-tune iterations)
+#
+# Usage:
+#   python run.py --config-name train_magicpony_mouse_a6000 gpu=0
+#
+# Prerequisites:
+#   1. Download pretrained horse:
+#      cd results/magicpony && bash download_pretrained_magicpony.sh
+#   2. Prepare mouse data:
+#      python scripts/convert_fauna_to_magicpony.py \
+#          --source data/fauna_mouse/large_scale/mouse_dannce_6view \
+#          --target data/magicpony/mouse --copy
+
+hydra:
+  run:
+    dir: .
+  output_subdir: ${checkpoint_dir}
+
+
+defaults:
+  - base
+  - dataset: image
+  - model: magicpony_mouse_a6000
+
+
+# Dataset settings
+dataset:
+  in_image_size: 256
+  out_image_size: 256
+  batch_size: 8  # A6000 can handle larger batch
+  train_data_dir: data/magicpony/mouse/train
+  val_data_dir: data/magicpony/mouse/val
+  random_shuffle_samples_train: true
+  load_dino_feature: false
+  dino_feature_dim: 16
+
+
+# Training settings - FINE-TUNE from pretrained horse
+run_train: true
+run_test: true
+seed: 42
+gpu: 0
+disable_tf32: false  # Enable TF32 for faster training
+num_iters: 100000  # Fine-tune: 100K iterations sufficient
+
+# Checkpoint settings - CRITICAL: Load from pretrained horse
+checkpoint_dir: results/magicpony/mouse_a6000
+checkpoint_path: results/magicpony/pretrained_horse/pretrained_horse.pth
+resume: true
+reset_epoch: true  # Reset iteration counter
+load_optim: false  # Don't load optimizer state
+
+# Checkpoint saving
+save_checkpoint_freq: 5000
+keep_num_checkpoint: 5
+
+# Visualization
+save_train_result_freq: 10000
+
+# Logging - WandB
+use_logger: true
+logger_type: wandb
+wandb_project: MagicPony_mouse_a6000
+wandb_run_name: finetune_horse_${now:%Y%m%d_%H%M%S}
+log_image_freq: 1000
+log_loss_freq: 100

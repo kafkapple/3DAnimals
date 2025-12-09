@@ -1,0 +1,107 @@
+# Ponymation Stage 2 Training - A6000 Original Paper Settings
+#
+# Ponymation Stage 2: Learn Motion VAE from articulation sequences
+# - Input: Articulation sequences from Stage 1
+# - Output: Motion VAE that can generate/interpolate motions
+# - NO visual losses (mask, rgb, dino) - only KLD and articulation reconstruction
+#
+# Original paper setup:
+# - 500K iterations for horse
+# - Start from Stage 1 checkpoint
+# - Larger batch size possible (no rendering)
+#
+# Expected training time: ~4-5 days on A6000
+#
+# Usage:
+#   python run.py --config-name train_ponymation_mouse_stage2_a6000 gpu=0
+#
+# Prerequisites:
+#   1. Complete Stage 1 training first
+#   2. Stage 1 checkpoint at: results/ponymation/mouse_stage1_a6000/
+
+hydra:
+  run:
+    dir: .
+  output_subdir: ${checkpoint_dir}
+
+
+defaults:
+  - base
+  - dataset: sequence
+  - model: ponymation_mouse_a6000
+
+
+# Dataset settings - Stage 2 uses articulation-only data
+dataset:
+  in_image_size: 256
+  out_image_size: 256
+  batch_size: 20  # Larger batch: no rendering needed
+  num_frames: 10
+  random_xflip_train: true  # Data augmentation
+  train_data_dir: data/ponymation/mouse_stage2/train  # Articulation-only data
+  val_data_dir: data/ponymation/mouse/test
+  random_shuffle_samples_train: true
+  load_dino_feature: true
+  dino_feature_dim: 16
+
+
+# Model overrides for Stage 2
+model:
+  enable_render: false  # NO rendering in Stage 2
+  cfg_predictor_base:
+    cfg_shape:
+      grid_res_coarse_iter_range: [0, inf]  # Keep coarse resolution
+  cfg_predictor_instance:
+    enable_motion_vae: true  # ENABLE VAE in Stage 2
+    enable_deform: true
+    cfg_articulation:
+      extra_constraints: false
+  # CRITICAL: Turn OFF all visual losses, only use VAE losses
+  cfg_loss:
+    mask_loss_weight: 0.
+    mask_dt_loss_weight: 0.
+    mask_inv_dt_loss_weight: 0.
+    rgb_loss_weight: 0.
+    dino_feat_im_loss_weight: 0.
+    logit_loss_weight: 0.
+    sdf_bce_reg_loss_weight: 0.
+    sdf_gradient_reg_loss_weight: 0.
+    arti_reg_loss_weight: 0.
+    deform_reg_loss_weight: 0.
+    artivel_smooth_loss_weight: 0.
+    # Only these losses are active
+    arti_recon_loss_weight: 100.0  # Articulation reconstruction
+    kld_loss_weight: 0.001  # KL Divergence for VAE
+
+
+# Training settings - Stage 2 (500K like original)
+run_train: true
+run_test: false
+seed: 42
+gpu: 0
+disable_tf32: false
+num_iters: 500000  # Original paper: 500K for Stage 2
+
+# Checkpoint settings - Start from Stage 1
+checkpoint_dir: results/ponymation/mouse_stage2_a6000
+checkpoint_name: null  # Will auto-find latest
+# IMPORTANT: Set checkpoint_path to Stage 1 result after Stage 1 completes
+# checkpoint_path: results/ponymation/mouse_stage1_a6000/ckpt-280000.pth
+resume: true
+load_optim: false
+
+# Checkpoint saving
+save_checkpoint_freq: 20000
+keep_num_checkpoint: 5
+
+# Visualization
+save_train_result_freq: 50000
+
+# Logging - WandB
+use_logger: true
+logger_type: wandb
+wandb_project: Ponymation_mouse_a6000
+wandb_run_name: stage2_500k_${now:%Y%m%d_%H%M%S}
+log_image_freq: 2000
+log_loss_freq: 100
+mixed_precision: false

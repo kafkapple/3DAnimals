@@ -1,0 +1,65 @@
+# Fauna Training Configuration - A6000 Original Paper Settings
+#
+# 3D-Fauna (CVPR 2024) original training setup:
+# - 800K iterations on single A40 GPU (~5 days)
+# - A6000 (48GB VRAM) enables identical settings
+#
+# Expected training time: ~5-6 days on A6000
+#
+# Usage:
+#   python run.py --config-name train_fauna_mouse_a6000 gpu=0
+#
+# Monitor with WandB:
+#   https://wandb.ai/{username}/Fauna_mouse_a6000
+
+hydra:
+  run:
+    dir: .
+  output_subdir: ${checkpoint_dir}
+
+
+defaults:
+  - base_fauna
+  - dataset: mouse_6view_posesplatter
+  - model: fauna_mouse_a6000
+
+
+# Dataset settings
+dataset:
+  in_image_size: 256
+  out_image_size: 256
+  batch_size: 6  # All 6 views in one batch
+  train_data_dir: data/fauna/mouse_6view_posesplatter
+  val_data_dir: null
+  test_data_dir: data/fauna/mouse_6view_posesplatter
+  random_shuffle_samples_train: false
+  load_dino_feature: false  # Compute on-the-fly
+  dino_feature_dim: 16
+  random_xflip_train: false  # Keep multi-view consistency
+
+
+# Training settings - ORIGINAL PAPER (800K iterations)
+run_train: true
+run_test: true
+seed: 42
+gpu: 0  # Override with command line: gpu=1
+disable_tf32: false  # Enable TF32 for faster training on A6000
+num_iters: 800000  # Original: 800K iterations (~5 days on A40/A6000)
+shuffle_dataset_paths: false
+
+# Checkpoint settings
+checkpoint_dir: results/fauna_mouse_a6000
+save_checkpoint_freq: 10000  # Save every 10K iterations
+keep_num_checkpoint: 5
+resume: true
+
+# Visualization
+save_train_result_freq: 20000  # Save mesh every 20K iterations
+
+# Logging - WandB
+use_logger: true
+logger_type: wandb
+wandb_project: Fauna_mouse_a6000
+wandb_run_name: original_800k_${now:%Y%m%d_%H%M%S}
+log_image_freq: 1000
+log_loss_freq: 100

@@ -1,0 +1,75 @@
+# Ponymation Model Configuration for Mouse - A6000 Original Paper Settings
+#
+# Based on Ponymation paper original hyperparameters:
+# - Stage 1: Learn articulated 3D animal from video frames (280K iter)
+# - Stage 2: Learn Motion VAE from articulation sequences (500K iter)
+#
+# A6000 (48GB VRAM) enables full resolution training
+
+defaults:
+  - ponymation
+
+name: Ponymation
+
+
+## Model settings - FULL RESOLUTION (A6000)
+cfg_render:
+  spatial_scale: 7  # Original Ponymation
+  renderer_spp: 4  # Higher quality rendering
+
+cfg_predictor_base:
+  cfg_shape:
+    grid_res: 256  # Original full resolution
+    grid_res_coarse_iter_range: [0, 140000]
+    grid_res_coarse: 128
+
+
+## Instance predictor - Original Ponymation defaults
+cfg_predictor_instance:
+  enable_deform: true
+  cfg_deform:
+    deform_iter_range: [90000, inf]
+    force_avg_deform: true
+
+  cfg_articulation:
+    articulation_iter_range: [10000, inf]
+    num_body_bones: 8  # Original Ponymation
+    num_legs: 4
+    num_leg_bones: 3
+    attach_legs_to_body_iter_range: [60000, inf]
+    legs_to_body_joint_indices: [2, 7, 7, 2]
+    constrain_legs: true
+    extra_constraints: true
+    use_fauna_constraints: false
+
+  # Motion VAE - enabled in Stage 2 only
+  enable_motion_vae: false  # Override in stage configs
+  cfg_motion_vae:
+    latent_dim: 256
+
+
+## Losses - Original Ponymation defaults
+cfg_loss:
+  mask_loss_weight: 10.
+  mask_dt_loss_weight: 0.
+  mask_inv_dt_loss_weight: 100.
+  rgb_loss_weight: 1.
+  dino_feat_im_loss_weight: 10.
+  sdf_bce_reg_loss_weight: 0.
+  sdf_gradient_reg_loss_weight: 0.01
+  logit_loss_weight: 1.
+  arti_reg_loss_weight: 0.1
+  deform_reg_loss_weight: 10.
+  arti_recon_loss_weight: 5.0
+  kld_loss_weight: 0.001
+  # Smooth losses
+  artivel_smooth_loss_weight: 0
+  campose_smooth_loss_weight: 0
+
+
+## Optimizer - Original Ponymation defaults
+cfg_optim_base:
+  lr: 0.0001
+
+cfg_optim_instance:
+  lr: 0.0001

@@ -1,0 +1,95 @@
+# Ponymation Stage 1 Training - A6000 Original Paper Settings
+#
+# Ponymation Stage 1: Learn articulated 3D animal from video frames
+# - Input: Video sequences with 10 frames
+# - Output: Articulated 3D mesh with per-frame pose
+# - NO Motion VAE in this stage
+#
+# Original paper setup:
+# - 280K iterations for horse
+# - Start from pretrained MagicPony horse model
+#
+# Expected training time: ~3-4 days on A6000
+#
+# Usage:
+#   python run.py --config-name train_ponymation_mouse_stage1_a6000 gpu=0
+#
+# Prerequisites:
+#   1. Download pretrained horse:
+#      cd results/magicpony && bash download_pretrained_magicpony.sh
+#   2. Prepare sequence data (video frames):
+#      python scripts/prepare_ponymation_data.py --species mouse
+
+hydra:
+  run:
+    dir: .
+  output_subdir: ${checkpoint_dir}
+
+
+defaults:
+  - base
+  - dataset: sequence
+  - model: ponymation_mouse_a6000
+
+
+# Dataset settings - Sequence data (video frames)
+dataset:
+  in_image_size: 256
+  out_image_size: 256
+  batch_size: 1  # Sequence data is memory-intensive
+  num_frames: 10  # 10 frames per sequence
+  train_data_dir: data/ponymation/mouse/train
+  val_data_dir: data/ponymation/mouse/test
+  random_shuffle_samples_train: true
+  load_dino_feature: true  # Precomputed DINO features
+  dino_feature_dim: 16
+
+
+# Model overrides for Stage 1
+model:
+  enable_render: true
+  cfg_render:
+    render_default: false
+    renderer_spp: 4
+  cfg_predictor_base:
+    cfg_shape:
+      grid_res_coarse_iter_range: [0, 140000]
+  cfg_predictor_instance:
+    enable_motion_vae: false  # NO VAE in Stage 1
+    enable_deform: true
+    cfg_articulation:
+      extra_constraints: false  # Relax constraints for mouse
+  cfg_loss:
+    artivel_smooth_loss_weight: 1  # Temporal smoothness
+    campose_smooth_loss_weight: 1
+
+
+# Training settings - Stage 1 (280K like original)
+run_train: true
+run_test: false
+seed: 42
+gpu: 0
+disable_tf32: false
+num_iters: 280000  # Original paper: 280K for Stage 1
+
+# Checkpoint settings - Start from pretrained MagicPony horse
+checkpoint_dir: results/ponymation/mouse_stage1_a6000
+checkpoint_path: results/magicpony/pretrained_horse/pretrained_horse.pth
+resume: true
+load_optim: false
+
+# Checkpoint saving
+save_checkpoint_freq: 10000
+keep_num_checkpoint: 5
+
+# Visualization
+save_train_result_freq: 20000
+
+# Logging - WandB
+use_logger: true
+logger_type: wandb
+wandb_project: Ponymation_mouse_a6000
+wandb_run_name: stage1_280k_${now:%Y%m%d_%H%M%S}
+log_image_freq: 1000
+log_loss_freq: 100
+mixed_precision: false

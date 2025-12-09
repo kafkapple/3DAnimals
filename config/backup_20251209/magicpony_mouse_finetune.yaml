@@ -1,0 +1,47 @@
+# MagicPony Mouse - Finetune Configuration (High LR)
+# Horse에서 Mouse로 빠르게 adaptation
+
+defaults:
+  - magicpony
+
+name: MagicPony
+
+# Shape network - 빠른 변화 허용
+cfg_predictor_base:
+  cfg_shape:
+    grid_res: 64
+    grid_res_coarse_iter_range: [0, 5000]
+    grid_res_coarse: 32
+    jitter_grid: 0.05
+    spatial_scale: 5.0
+
+# Articulation - 빨리 활성화 (horse 지식 활용)
+cfg_predictor_instance:
+  enable_deform: false
+  cfg_deform:
+    deform_iter_range: [30000, inf]
+  cfg_articulation:
+    articulation_iter_range: [5000, inf]
+    num_body_bones: 6  # mouse용 (horse: 8)
+    num_legs: 4
+    num_leg_bones: 3
+    legs_to_body_joint_indices: [1, 5, 5, 1]  # mouse용
+    extra_constraints: false
+
+# Loss Configuration - shape 변화 유도
+cfg_loss:
+  mask_loss_weight: 100.0  # 강화: mask에 맞추도록
+  mask_dt_loss_weight: 1.0
+  mask_inv_dt_loss_weight: 1000.0  # 강화
+  rgb_loss_weight: 1.0
+  dino_feat_im_loss_weight: 5.0
+  logit_loss_weight: 0.1  # 낮춤: prior 약화
+  sdf_bce_reg_loss_weight: 0.5  # 낮춤: 변화 허용
+  sdf_gradient_reg_loss_weight: 0.5
+
+# 높은 Learning Rate - 빠른 adaptation
+cfg_optim_base:
+  lr: 0.0005  # 5배 높게
+
+cfg_optim_instance:
+  lr: 0.0005
