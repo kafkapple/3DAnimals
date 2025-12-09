@@ -78,7 +78,7 @@ model:
 run_train: true
 run_test: false
 seed: 42
-gpu: 0
+gpu: 1  # A6000 서버: GPU 1번 사용
 disable_tf32: false
 num_iters: 500000  # Original paper: 500K for Stage 2
 

@@ -42,7 +42,7 @@ dataset:
 run_train: true
 run_test: true
 seed: 42
-gpu: 0  # Override with command line: gpu=1
+gpu: 1  # A6000 서버: GPU 1번 사용
 disable_tf32: false  # Enable TF32 for faster training on A6000
 num_iters: 800000  # Original: 800K iterations (~5 days on A40/A6000)
 shuffle_dataset_paths: false

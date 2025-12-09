@@ -109,11 +109,11 @@ config/backup_20251209/
 ### Option A: 3D Fauna (800K iterations)
 
 ```bash
-# 학습 시작 (GPU 0 사용)
-python run.py --config-name train_fauna_mouse_a6000 gpu=0
+# 학습 시작 (GPU 1 사용 - A6000 서버 기본값)
+python run.py --config-name train_fauna_mouse_a6000
 
 # 백그라운드 실행
-nohup python run.py --config-name train_fauna_mouse_a6000 gpu=0 \
+nohup python run.py --config-name train_fauna_mouse_a6000 \
     > logs/fauna_a6000.log 2>&1 &
 
 # 로그 모니터링
@@ -132,24 +132,24 @@ results/fauna_mouse_a6000/
 
 ```bash
 # Pretrained horse에서 시작
-python run.py --config-name train_magicpony_mouse_a6000 gpu=0
+python run.py --config-name train_magicpony_mouse_a6000
 
 # From scratch 학습 (비교용)
-python run.py --config-name train_magicpony_mouse_scratch_a6000 gpu=0
+python run.py --config-name train_magicpony_mouse_scratch_a6000
 ```
 
 ### Option C: Ponymation (2-Stage)
 
 ```bash
 # Stage 1: Articulation 학습 (280K)
-python run.py --config-name train_ponymation_mouse_stage1_a6000 gpu=0
+python run.py --config-name train_ponymation_mouse_stage1_a6000
 
 # Stage 1 완료 후, Stage 2 설정 수정 필요
 # config/train_ponymation_mouse_stage2_a6000.yaml에서:
 # checkpoint_path: results/ponymation/mouse_stage1_a6000/ckpt-280000.pth
 
 # Stage 2: Motion VAE 학습 (500K)
-python run.py --config-name train_ponymation_mouse_stage2_a6000 gpu=0
+python run.py --config-name train_ponymation_mouse_stage2_a6000
 ```
 
 ---
