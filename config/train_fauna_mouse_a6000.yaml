@@ -49,8 +49,8 @@ shuffle_dataset_paths: false
 
 # Checkpoint settings
 checkpoint_dir: results/fauna_mouse_a6000
-save_checkpoint_freq: 10000  # Save every 10K iterations
-keep_num_checkpoint: 5
+save_checkpoint_freq: 2000  # Save every 2K iterations (~30min)
+keep_num_checkpoint: 3  # Keep only 3 most recent checkpoints
 resume: true
 
 # Visualization
